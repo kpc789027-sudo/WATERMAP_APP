@@ -1,0 +1,24 @@
+{
+  "name": "산림 전자야장",
+  "short_name": "전자야장",
+  "description": "산림 현장조사 전자야장 앱",
+  "start_url": "/html_change/",
+  "display": "standalone",
+  "background_color": "#0A5C45",
+  "theme_color": "#1D9E75",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://kpc789027-sudo.github.io/html_change/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://kpc789027-sudo.github.io/html_change/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
