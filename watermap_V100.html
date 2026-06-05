@@ -205,6 +205,99 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans KR', 'Malgun G
 .progress-bar-wrap { height: 6px; background: #FAC775; border-radius: 3px; margin-top: 8px; overflow: hidden; }
 .progress-bar { height: 100%; background: var(--warning); border-radius: 3px; width: 0; transition: width 0.3s; }
 
+/* ====== 다크모드 ====== */
+body.dark-mode {
+  --white: #1A1A1A;
+  --green-light: #1e3a2e;
+  --green-mid: #2d5c3f;
+  --green-dark: #A5D6A7;
+  --gray-bg: #2A2A2A;
+  --gray-border: #3A3A3A;
+  --gray-text: #AAAAAA;
+  --text: #E8E8E8;
+  --text-sub: #AAAAAA;
+  --danger: #FF6B6B;
+  background: #121212;
+  color: #E8E8E8;
+}
+body.dark-mode .card {
+  background: #1E1E1E;
+  border-color: #333;
+}
+body.dark-mode .card-header {
+  background: #252525;
+  border-color: #333;
+}
+body.dark-mode input, body.dark-mode select, body.dark-mode textarea {
+  background: #2A2A2A !important;
+  color: #E8E8E8 !important;
+  border-color: #3d9970 !important;
+}
+body.dark-mode input::placeholder {
+  color: #666 !important;
+}
+body.dark-mode .nav-bar {
+  background: #1A1A1A;
+  border-color: #333;
+}
+body.dark-mode .nav-btn {
+  color: #888;
+}
+body.dark-mode .nav-btn.active {
+  color: #4CAF50;
+  background: #1e3a2e;
+}
+body.dark-mode .field {
+  background: #1E1E1E;
+  border-color: #333;
+}
+body.dark-mode .btn-group button {
+  background: #2A2A2A !important;
+  color: #AAAAAA !important;
+  border-color: #444 !important;
+}
+body.dark-mode .btn-group button.active {
+  background: #0A5C45 !important;
+  color: #A5D6A7 !important;
+  border-color: #4CAF50 !important;
+}
+body.dark-mode .photo-slot {
+  background: #2A2A2A;
+}
+body.dark-mode .photo-slot.landscape-slot {
+  background: #1a2e20;
+  outline-color: #4CAF50;
+}
+body.dark-mode .photo-slot.portrait-slot {
+  background: #2a2a1a;
+  outline-color: #F5A623;
+}
+body.dark-mode .header-bar {
+  background: #0A5C45;
+}
+body.dark-mode .tab-panel {
+  background: #121212;
+}
+body.dark-mode .setting-label {
+  color: #E8E8E8;
+}
+body.dark-mode .setting-sub {
+  color: #888;
+}
+body.dark-mode .bottom-bar {
+  background: #1A1A1A;
+  border-color: #333;
+}
+body.dark-mode .btn-reset {
+  background: #2A2A2A;
+  color: #AAAAAA;
+  border-color: #444;
+}
+body.dark-mode .record-card {
+  background: #1E1E1E;
+  border-color: #333;
+}
+
 /* Google 연동 안내 */
 .google-setup { background: var(--green-light); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; border: 1.5px solid var(--green-mid); }
 .google-setup h3 { font-size: 16px; font-weight: 700; color: var(--green-dark); margin-bottom: 8px; }
@@ -777,9 +870,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans KR', 'Malgun G
     <div class="card-header">
       <span class="card-header-icon">👥</span>
       <h2>조사팀 선택</h2>
+      <button onclick="toggleDarkMode()" id="dark-mode-toggle"
+        style="margin-left:auto;padding:8px 18px;background:var(--gray-bg);color:var(--text);border:1.5px solid var(--gray-border);border-radius:20px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;">
+        🌙 다크모드
+      </button>
     </div>
     <div class="card-body">
-      <div style="background:var(--green-light);border-radius:var(--radius-sm);padding:8px 10px;margin-bottom:12px;font-size:13px;color:var(--green-dark);line-height:1.6;">
+      <div id="team-notice-box" style="background:var(--green-light);border-radius:var(--radius-sm);padding:8px 10px;margin-bottom:12px;font-size:13px;color:var(--green-dark);line-height:1.6;">
         관리자가 구글 시트 <b>조사팀관리</b>에 팀명을 입력하면<br>아래 버튼으로 팀 목록을 불러와 선택할 수 있습니다.
       </div>
       <div style="display:flex;gap:8px;margin-bottom:10px;">
@@ -814,59 +911,74 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans KR', 'Malgun G
 
   <!-- 팀 관리 카드 -->
     
-<div class="google-setup">
-    <h3>Google Sheets 연동 설정</h3>
-    <p>아래 Apps Script 웹앱 URL을 입력하면 현장에서 저장 즉시 Google Sheets에 자동으로 기록됩니다.<br>
-    Google Sheets → 확장 프로그램 → <code>Apps Script</code> → 배포 → 웹앱 URL을 복사해 아래에 입력하세요.</p>
-  </div>
+<!-- Google Sheets 연동 설정 안내문 숨김 -->
 
-<div class="card">
-    <div class="card-header">
-      <span class="card-header-icon">⚙️</span>
-      <h2>Google 연동</h2>
+<!-- 관리자 잠금 섹션 - 맨 아래 작게 -->
+  <div style="margin-bottom:14px;">
+    <div id="admin-lock-box" style="background:var(--gray-bg);border:0.5px solid var(--gray-border);border-radius:var(--radius-sm);padding:10px;display:flex;align-items:center;gap:8px;justify-content:center;">
+      <span style="font-size:12px;color:var(--text-sub);">🔒 관리자</span>
+      <input type="password" id="admin-pw-input" placeholder="비밀번호" maxlength="10"
+        style="width:100px;padding:5px 8px;border:0.5px solid var(--gray-border);border-radius:var(--radius-sm);font-size:13px;text-align:center;"
+        onkeydown="if(event.key==='Enter') checkAdminPw()">
+      <button onclick="checkAdminPw()"
+        style="padding:5px 12px;background:var(--green);color:white;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:700;cursor:pointer;">
+        확인
+      </button>
+      <span id="admin-pw-error" style="display:none;font-size:12px;color:var(--danger);">틀렸습니다</span>
     </div>
-    <div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Apps Script URL</div>
-          <div class="setting-sub">Google Sheets 웹앱 주소</div>
-        </div>
-      </div>
-      <div style="padding:0 14px 14px;">
-        <input type="text" id="setting-script-url" placeholder="https://script.google.com/macros/s/..." style="width:100%;padding:9px 11px;border:0.5px solid var(--gray-border);border-radius:var(--radius-sm);font-size:13px;">
-      </div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Google Drive 폴더 ID</div>
-          <div class="setting-sub">사진 저장용 Drive 폴더</div>
-        </div>
-      </div>
-      <div style="padding:0 14px 14px;">
-        <input type="text" id="setting-drive-folder" placeholder="예) 1p4YEtBtK0MqNYNzHFUTCw24I4pMH_FmA  (/folders/ 뒤 ID만 입력)" style="width:100%;padding:9px 11px;border:0.5px solid var(--gray-border);border-radius:var(--radius-sm);font-size:13px;">
-      </div>
-      <div style="padding:0 14px 16px;">
-        <button onclick="saveSettings()" id="save-settings-btn"
-          style="width:100%;padding:14px;background:var(--green);color:white;border:none;border-radius:var(--radius-sm);font-size:17px;font-weight:700;cursor:pointer;letter-spacing:0.3px;">
-          💾 설정 저장
-        </button>
-        <div id="settings-saved-msg" style="display:none;margin-top:8px;padding:9px 12px;background:var(--green-light);border-radius:var(--radius-sm);font-size:14px;font-weight:700;color:var(--green-dark);text-align:center;">
-          ✓ 설정이 저장되었습니다
-        </div>
-      </div>
-    </div>
-  </div>
 
-  <!-- Apps Script 코드 (관리자용) -->
-  <div style="margin-bottom:16px;">
-    <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;">
-      <button onclick="toggleAppsScript()" style="padding:5px 12px;background:var(--gray-bg);color:var(--gray-text);border:1px solid var(--gray-border);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;">
-        📄 관리자 Script 코드 <span id="apps-script-toggle-icon">▼</span>
-      </button>
-      <button onclick="copyAppsScript()" id="copy-script-btn"
-        style="padding:5px 12px;background:var(--gray-bg);color:var(--gray-text);border:1px solid var(--gray-border);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;">
-        📋 복사
-      </button>
-    </div>
+    <div id="admin-content" style="display:none;">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+        <button onclick="lockAdmin()" style="padding:4px 10px;background:var(--gray-bg);color:var(--text-sub);border:1px solid var(--gray-border);border-radius:20px;font-size:12px;cursor:pointer;">🔒 잠금</button>
+      </div>
+
+      <div class="card" id="admin-google-card">
+        <div class="card-header">
+          <span class="card-header-icon">⚙️</span>
+          <h2>Google 연동</h2>
+        </div>
+        <div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Apps Script URL</div>
+              <div class="setting-sub">Google Sheets 웹앱 주소</div>
+            </div>
+          </div>
+          <div style="padding:0 14px 14px;">
+            <input type="text" id="setting-script-url" placeholder="https://script.google.com/macros/s/..." style="width:100%;padding:9px 11px;border:0.5px solid var(--gray-border);border-radius:var(--radius-sm);font-size:13px;">
+          </div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Google Drive 폴더 ID</div>
+              <div class="setting-sub">사진 저장용 Drive 폴더</div>
+            </div>
+          </div>
+          <div style="padding:0 14px 14px;">
+            <input type="text" id="setting-drive-folder" placeholder="예) 1p4YEtBtK0MqNYNzHFUTCw24I4pMH_FmA  (/folders/ 뒤 ID만 입력)" style="width:100%;padding:9px 11px;border:0.5px solid var(--gray-border);border-radius:var(--radius-sm);font-size:13px;">
+          </div>
+          <div style="padding:0 14px 16px;">
+            <button onclick="saveSettings()" id="save-settings-btn"
+              style="width:100%;padding:14px;background:var(--green);color:white;border:none;border-radius:var(--radius-sm);font-size:17px;font-weight:700;cursor:pointer;letter-spacing:0.3px;">
+              💾 설정 저장
+            </button>
+            <div id="settings-saved-msg" style="display:none;margin-top:8px;padding:9px 12px;background:var(--green-light);border-radius:var(--radius-sm);font-size:14px;font-weight:700;color:var(--green-dark);text-align:center;">
+              ✓ 설정이 저장되었습니다
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Apps Script 코드 (관리자용) -->
+      <div style="margin-bottom:16px;margin-top:8px;">
+        <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;">
+          <button onclick="toggleAppsScript()" style="padding:5px 12px;background:var(--gray-bg);color:var(--gray-text);border:1px solid var(--gray-border);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;">
+            📄 관리자 Script 코드 <span id="apps-script-toggle-icon">▼</span>
+          </button>
+          <button onclick="copyAppsScript()" id="copy-script-btn"
+            style="padding:5px 12px;background:var(--gray-bg);color:var(--gray-text);border:1px solid var(--gray-border);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;">
+            📋 복사
+          </button>
+        </div>
     <div id="apps-script-body" style="display:none;margin-top:8px;border:1px solid var(--gray-border);border-radius:var(--radius-sm);overflow:hidden;">
       <div class="card-body" style="padding:12px;">
       <div style="background:var(--green-light);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:10px;font-size:12px;color:var(--green-dark);line-height:1.7;">
@@ -1234,6 +1346,7 @@ function json(obj) {
       </div>
     </div>
   </div>
+    </div>
 
   <!-- 구글시트에서 불러오기 카드 -->
   <div class="card" style="margin-bottom:10px;">
@@ -1259,6 +1372,13 @@ function json(obj) {
 
 </div><!-- /tab-setting -->
 
+<!-- 이미지 전체화면 뷰어 -->
+<div id="photo-viewer" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.95);flex-direction:column;align-items:center;justify-content:center;">
+  <button onclick="closePhotoViewer()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.2);border:none;color:white;font-size:24px;width:44px;height:44px;border-radius:50%;cursor:pointer;z-index:1;">✕</button>
+  <div id="photo-viewer-label" style="position:absolute;top:20px;left:50%;transform:translateX(-50%);color:white;font-size:14px;font-weight:600;background:rgba(0,0,0,0.5);padding:4px 12px;border-radius:20px;"></div>
+  <img id="photo-viewer-img" src="" style="max-width:100%;max-height:100vh;object-fit:contain;"/>
+</div>
+
 <!-- 사진 액션 바텀시트 -->
 <div id="photo-action-sheet" style="display:none;position:fixed;inset:0;z-index:9999;">
   <div onclick="closePhotoSheet()" style="position:absolute;inset:0;background:rgba(0,0,0,0.5);"></div>
@@ -1269,6 +1389,8 @@ function json(obj) {
       style="width:100%;padding:15px;background:var(--green-light);color:var(--green-dark);border:none;border-radius:var(--radius-sm);font-size:17px;font-weight:700;cursor:pointer;margin-bottom:10px;"></button>
     <button id="photo-sheet-btn2" onclick="photoSheetAction2()"
       style="width:100%;padding:15px;background:#FDECEA;color:var(--danger);border:none;border-radius:var(--radius-sm);font-size:17px;font-weight:700;cursor:pointer;margin-bottom:10px;"></button>
+    <button id="photo-sheet-btn3" onclick="photoSheetAction3()"
+      style="width:100%;padding:15px;background:#EEF2FF;color:#3730A3;border:none;border-radius:var(--radius-sm);font-size:17px;font-weight:700;cursor:pointer;margin-bottom:10px;display:none;">🔍 이미지 보기</button>
     <button onclick="closePhotoSheet()"
       style="width:100%;padding:15px;background:var(--gray-bg);color:var(--text-sub);border:none;border-radius:var(--radius-sm);font-size:17px;font-weight:600;cursor:pointer;">
       취소
@@ -1663,6 +1785,17 @@ const TEAM_CODE = '';   // 예: '1팀', '2팀' ... 비워두면 설정탭에서 
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', () => {
+  // 다크모드 복원
+  if (localStorage.getItem('dark_mode') === '1') {
+    document.body.classList.add('dark-mode');
+    const btn = document.getElementById('dark-mode-toggle');
+    if (btn) {
+      btn.innerHTML = '☀️ 라이트모드';
+      btn.style.background = '#1e3a2e';
+      btn.style.color = '#A5D6A7';
+      btn.style.borderColor = '#4CAF50';
+    }
+  }
   buildSelectOptions();
   buildMunsellOptions();
   buildPhotoGrid();
@@ -2219,6 +2352,26 @@ async function saveData() {
     return;
   }
 
+  // 수종명 최소 1행 이상 입력 필수
+  const hasTreeData = Array.from({ length: TREE_TOTAL }, (_, i) => i + 1)
+    .some(i => (document.getElementById('tr-species-' + i)?.value || '').trim() !== '');
+  if (!hasTreeData) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-tree').classList.add('active');
+    document.querySelectorAll('.nav-btn')[1].classList.add('active');
+    currentTab = 'tab-tree';
+    // 첫 번째 수종명 입력란으로 스크롤
+    const firstSpecies = document.getElementById('tr-species-1');
+    if (firstSpecies) {
+      firstSpecies.style.background = '#FFF0F0';
+      firstSpecies.style.outline = '1.5px solid #E24B4A';
+      firstSpecies.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    showToast('⚠️ 임목조사 수종명을 최소 1개 이상 입력해주세요', 'error');
+    return;
+  }
+
   // ====== 사진 유효성 검사 ======
   {
     const moveNeeded = document.getElementById('soil-move-need')?.value === '조사지이동';
@@ -2392,24 +2545,35 @@ async function saveData() {
   const teamCode = localStorage.getItem('team_code') || '';
   const weekCode = (window._plotMap && window._plotMap[plotNo] && window._plotMap[plotNo].week) || '주차미정';
 
-  // 수정 모드(사진이 이미 업로드된 경우)에서는 사진 재업로드 하지 않음
+  // 수정 모드: uploaded:false인 사진만 재업로드 (새로 찍은 것만)
   const isEditMode2 = existingRec2 && existingRec2.photoList &&
     existingRec2.photoList.length > 0 &&
     existingRec2.photoList.some(p => p.uploaded);
 
-  const photoPayloadList = isEditMode2 ? [] : await Promise.all(
+  // 수정 모드여도 uploaded:false인 사진은 업로드 (새로 찍은 사진)
+  // 신규 모드면 모든 사진 업로드
+  const folderId = localStorage.getItem('drive_folder') || '1p4YEtBtK0MqNYNzHFUTCw24I4pMH_FmA';
+
+  const photoPayloadList = await Promise.all(
     Object.entries(photoData).map(async ([idx, p]) => {
+      // 수정 모드에서 이미 업로드된 사진은 스킵
+      if (isEditMode2 && existingRec2.photoList) {
+        const existing = existingRec2.photoList.find(pl => pl.filename === p.filename);
+        if (existing && existing.uploaded) return null; // 이미 업로드됨 → 스킵
+      }
       const stored = await idbGet('photo_' + idx);
       if (!stored) return null;
-      const folderId = localStorage.getItem('drive_folder') || '1p4YEtBtK0MqNYNzHFUTCw24I4pMH_FmA';
       return { type: 'photo', base64: stored.base64, filename: p.filename, plotNo, teamCode, weekCode, folderId };
     })
   );
-  const movePhotoPayloadList = isEditMode2 ? [] : await Promise.all(
+  const movePhotoPayloadList = await Promise.all(
     Object.entries(movePhotoData).map(async ([idx, p]) => {
+      if (isEditMode2 && existingRec2.photoList) {
+        const existing = existingRec2.photoList.find(pl => pl.filename === p.filename);
+        if (existing && existing.uploaded) return null;
+      }
       const stored = await idbGet('move_photo_' + idx);
       if (!stored) return null;
-      const folderId = localStorage.getItem('drive_folder') || '1p4YEtBtK0MqNYNzHFUTCw24I4pMH_FmA';
       return { type: 'photo', base64: stored.base64, filename: p.filename, plotNo, teamCode, weekCode, folderId };
     })
   );
@@ -2498,7 +2662,8 @@ async function saveData() {
     showToast('✓ Google Sheets 업로드 완료!', 'success');
   }
 
-  if (!isEditMode2) {
+  const hasNewPhotos = photoPayloads.filter(Boolean).length > 0;
+  if (!isEditMode2 || hasNewPhotos) {
     await downloadPhotosAsZip(plotNo);
   }
 
@@ -2662,6 +2827,9 @@ function handleMovePhoto(event, i) {
   const plotNo = document.getElementById('soil-plot-no')?.value || 'NOPLOT';
   const filename = plotNo + '(' + MOVE_PHOTO_SLOTS[i] + ').jpg';
 
+  // 안전장치: 30초 후 강제 해제
+  const _safetyTimerM = setTimeout(() => { _photoProcessing = false; }, 5000);
+
   // blobURL 방식: 메모리 효율적
   const blobUrl = URL.createObjectURL(file);
   const tmpImg = new Image();
@@ -2696,7 +2864,7 @@ function handleMovePhoto(event, i) {
       const thumbImg = new Image();
       thumbImg.onload = () => {
         thumbCanvas.getContext('2d').drawImage(thumbImg, 0, 0, 200, 150);
-        const thumbSrc = thumbCanvas.toDataURL('image/jpeg', 0.5);
+        const thumbSrc = thumbCanvas.toDataURL('image/jpeg', 0.2);
         thumbCanvas.width = 0; thumbCanvas.height = 0;
         thumbImg.src = '';
         const slot = document.getElementById('photo-move-slot-' + i);
@@ -2718,11 +2886,13 @@ function handleMovePhoto(event, i) {
       URL.revokeObjectURL(blobUrl);
       showToast('사진 처리 실패 — 다시 시도해주세요.', 'error');
     } finally {
+      clearTimeout(_safetyTimer);
       _photoProcessing = false;
     }
   };
   tmpImg.onerror = () => {
     URL.revokeObjectURL(blobUrl);
+    clearTimeout(_safetyTimer);
     _photoProcessing = false;
     showToast('사진 로드 실패 — 다시 시도해주세요.', 'error');
   };
@@ -3038,6 +3208,7 @@ function openPhotoSheet(state, type, idx, slotName) {
   const btn2   = document.getElementById('photo-sheet-btn2');
   label.textContent = slotName.replace('2','') + ' 사진';
 
+  document.getElementById('photo-sheet-btn3').style.display = 'none';
   if (state === 'empty') {
     // 사진 없을 때: 사진 촬영 / 이미지 불러오기
     btn1.textContent = '📷 사진 촬영';
@@ -3047,13 +3218,14 @@ function openPhotoSheet(state, type, idx, slotName) {
     btn2.style.background = 'var(--green-light)';
     btn2.style.color = 'var(--green-dark)';
   } else {
-    // 사진 있을 때: 재촬영 / 삭제
+    // 사진 있을 때: 재촬영 / 삭제 / 이미지 보기
     btn1.textContent = '📷 재촬영';
     btn1.style.background = 'var(--green-light)';
     btn1.style.color = 'var(--green-dark)';
     btn2.textContent = '🗑 삭제';
     btn2.style.background = '#FDECEA';
     btn2.style.color = 'var(--danger)';
+    document.getElementById('photo-sheet-btn3').style.display = 'block';
   }
 
   document.getElementById('photo-action-sheet').style.display = 'block';
@@ -3064,6 +3236,33 @@ function closePhotoSheet() {
   document.getElementById('photo-action-sheet').style.display = 'none';
   document.body.style.overflow = '';
   _sheetState = null;
+}
+
+async function photoSheetAction3() {
+  if (!_sheetState) return;
+  const { type, idx } = _sheetState;
+  closePhotoSheet();
+  const key = type === 'photo' ? 'photo_' + idx : 'move_photo_' + idx;
+  const stored = await idbGet(key);
+  if (!stored || !stored.base64) {
+    showToast('사진 데이터를 불러올 수 없습니다', 'error');
+    return;
+  }
+  const SLOTS = ['C_울폐도','N_8M','N_4M_울폐도','E_8M','E_4M_울폐도','S_8M','S_4M_울폐도','W_8M','W_4M_울폐도','전토심','토양단면','지표면'];
+  const MOVE  = ['N_기존현황','E_기존현황','S_기존현황','W_기존현황'];
+  const label = type === 'photo' ? SLOTS[idx] : MOVE[idx];
+  const viewer = document.getElementById('photo-viewer');
+  document.getElementById('photo-viewer-img').src = 'data:image/jpeg;base64,' + stored.base64;
+  document.getElementById('photo-viewer-label').textContent = label;
+  viewer.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closePhotoViewer() {
+  const viewer = document.getElementById('photo-viewer');
+  viewer.style.display = 'none';
+  document.getElementById('photo-viewer-img').src = '';
+  document.body.style.overflow = '';
 }
 
 function photoSheetAction1() {
@@ -3096,14 +3295,46 @@ function photoSheetAction2() {
   }
 }
 
-// 카메라 촬영 (capture=environment)
+// 카메라 촬영 — 매번 새 input 생성 (capture 속성 충돌 방지)
 function triggerPhotoCamera(idx) {
-  const inp = document.getElementById('photo-input-' + idx);
-  if (inp) { inp.setAttribute('capture', 'environment'); inp.value = ''; inp.click(); }
+  _photoProcessing = false; // 혹시 잠겨있으면 해제
+  const old = document.getElementById('photo-input-' + idx);
+  if (!old) return;
+  const parent = old.parentElement;
+  const newInp = document.createElement('input');
+  newInp.type = 'file';
+  newInp.id = 'photo-input-' + idx;
+  newInp.accept = 'image/jpeg,image/png,image/jpg,image/webp';
+  newInp.setAttribute('capture', 'environment');
+  newInp.style.display = 'none';
+  newInp.addEventListener('change', (ev) => {
+    if (!ev.target.files || ev.target.files.length === 0) { _photoProcessing = false; return; }
+    handlePhoto(ev, idx);
+  });
+  newInp.addEventListener('cancel', () => { _photoProcessing = false; });
+  parent.replaceChild(newInp, old);
+  setTimeout(() => newInp.click(), 50);
+  setTimeout(() => { _photoProcessing = false; }, 5000);
 }
 function triggerMovePhotoCamera(idx) {
-  const inp = document.getElementById('photo-input-move-' + idx);
-  if (inp) { inp.setAttribute('capture', 'environment'); inp.value = ''; inp.click(); }
+  _photoProcessing = false;
+  const old = document.getElementById('photo-input-move-' + idx);
+  if (!old) return;
+  const parent = old.parentElement;
+  const newInp = document.createElement('input');
+  newInp.type = 'file';
+  newInp.id = 'photo-input-move-' + idx;
+  newInp.accept = 'image/jpeg,image/png,image/jpg,image/webp';
+  newInp.setAttribute('capture', 'environment');
+  newInp.style.display = 'none';
+  newInp.addEventListener('change', (ev) => {
+    if (!ev.target.files || ev.target.files.length === 0) { _photoProcessing = false; return; }
+    handleMovePhoto(ev, idx);
+  });
+  newInp.addEventListener('cancel', () => { _photoProcessing = false; });
+  parent.replaceChild(newInp, old);
+  setTimeout(() => newInp.click(), 50);
+  setTimeout(() => { _photoProcessing = false; }, 5000);
 }
 // 갤러리 불러오기 - 새 input 생성 방식 (capture 완전 제거)
 function triggerPhotoGallery(idx) {
@@ -3176,6 +3407,8 @@ function handlePhoto(event, idx) {
   }
 
   _photoProcessing = true;
+  const _safetyTimer = setTimeout(() => { _photoProcessing = false; }, 5000);
+
 
   const plotNo = document.getElementById('soil-plot-no').value || 'NOPLOT';
   const filename = plotNo + '(' + PHOTO_SLOTS[idx] + ').jpg';
@@ -3239,7 +3472,7 @@ function handlePhoto(event, idx) {
       const thumbImg = new Image();
       thumbImg.onload = () => {
         thumbCtx.drawImage(thumbImg, 0, 0, THUMB_W, THUMB_H);
-        const thumbSrc = thumbCanvas.toDataURL('image/jpeg', 0.5);
+        const thumbSrc = thumbCanvas.toDataURL('image/jpeg', 0.2);
         thumbCanvas.width = 0; thumbCanvas.height = 0;
         thumbImg.src = '';
 
@@ -3268,11 +3501,13 @@ function handlePhoto(event, idx) {
       URL.revokeObjectURL(blobUrl);
       showToast('사진 처리 실패 — 다시 시도해주세요.', 'error');
     } finally {
+      clearTimeout(_safetyTimerM);
       _photoProcessing = false;
     }
   };
   tmpImg.onerror = () => {
     URL.revokeObjectURL(blobUrl);
+    clearTimeout(_safetyTimerM);
     _photoProcessing = false;
     showToast('사진 로드 실패 — 다시 시도해주세요.', 'error');
   };
@@ -3685,6 +3920,85 @@ function _restoreRecordData(rec) {
   toggleMovePhotoCard();
   syncToTree();
   updatePhotoNames();
+
+  // 사진 슬롯 복원 — IDB에서 썸네일 다시 표시
+  if (rec.photoList && rec.photoList.length > 0) {
+    const SLOTS = ['C_울폐도','N_8M','N_4M_울폐도','E_8M','E_4M_울폐도',
+                   'S_8M','S_4M_울폐도','W_8M','W_4M_울폐도','전토심','토양단면','지표면'];
+    const MOVE_SLOTS = ['N_기존현황','E_기존현황','S_기존현황','W_기존현황'];
+
+    // 일반 사진 12장 복원
+    for (let i = 0; i < SLOTS.length; i++) {
+      const expectedFilename = (rec.plotNo || '') + '(' + SLOTS[i] + ').jpg';
+      const photoEntry = rec.photoList.find(p => p.filename === expectedFilename);
+      if (!photoEntry) continue;
+      (async (idx, filename) => {
+        const stored = await idbGet('photo_' + idx);
+        if (!stored || !stored.base64) return;
+        photoData[idx] = { filename };
+        const slot = document.getElementById('photo-slot-' + idx);
+        if (!slot) return;
+        const isPortrait = ['전토심','토양단면'].includes(SLOTS[idx]);
+        slot.className = 'photo-slot ' + (isPortrait ? 'portrait-slot' : 'landscape-slot');
+        slot.classList.remove('photo-required-error');
+        slot.innerHTML = '';
+        const thumbCanvas = document.createElement('canvas');
+        thumbCanvas.width = 200; thumbCanvas.height = 150;
+        const thumbImg = new Image();
+        thumbImg.onload = () => {
+          thumbCanvas.getContext('2d').drawImage(thumbImg, 0, 0, 200, 150);
+          const thumbSrc = thumbCanvas.toDataURL('image/jpeg', 0.2);
+          thumbCanvas.width = 0; thumbCanvas.height = 0;
+          thumbImg.src = '';
+          const img = document.createElement('img');
+          img.src = thumbSrc;
+          img.alt = SLOTS[idx];
+          img.style.cssText = 'width:100%;height:100%;object-fit:cover;position:absolute;inset:0;';
+          slot.appendChild(img);
+          const nameBar = document.createElement('div');
+          nameBar.className = 'photo-overlay';
+          nameBar.textContent = filename;
+          slot.appendChild(nameBar);
+          slot.style.cursor = 'pointer';
+          slot.onclick = () => openPhotoSheet('filled', 'photo', idx, SLOTS[idx]);
+        };
+        thumbImg.src = 'data:image/jpeg;base64,' + stored.base64;
+      })(i, expectedFilename);
+    }
+
+    // 이동사진 4장 복원
+    for (let i = 0; i < MOVE_SLOTS.length; i++) {
+      const expectedFilename = (rec.plotNo || '') + '(' + MOVE_SLOTS[i] + ').jpg';
+      const photoEntry = rec.photoList.find(p => p.filename === expectedFilename);
+      if (!photoEntry) continue;
+      (async (idx, filename) => {
+        const stored = await idbGet('move_photo_' + idx);
+        if (!stored || !stored.base64) return;
+        movePhotoData[idx] = { filename };
+        const slot = document.getElementById('photo-move-slot-' + idx);
+        if (!slot) return;
+        slot.className = 'photo-slot landscape-slot';
+        slot.classList.remove('photo-required-error');
+        slot.innerHTML = '';
+        const thumbCanvas = document.createElement('canvas');
+        thumbCanvas.width = 200; thumbCanvas.height = 150;
+        const thumbImg = new Image();
+        thumbImg.onload = () => {
+          thumbCanvas.getContext('2d').drawImage(thumbImg, 0, 0, 200, 150);
+          const thumbSrc = thumbCanvas.toDataURL('image/jpeg', 0.2);
+          thumbCanvas.width = 0; thumbCanvas.height = 0;
+          thumbImg.src = '';
+          const img = document.createElement('img');
+          img.src = thumbSrc;
+          img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+          slot.appendChild(img);
+          slot.style.cursor = 'pointer';
+          slot.onclick = () => openPhotoSheet('filled', 'move', idx, MOVE_SLOTS[idx]);
+        };
+        thumbImg.src = 'data:image/jpeg;base64,' + stored.base64;
+      })(i, expectedFilename);
+    }
+  }
 }
 
 function saveDefaultSettings() {
@@ -4352,6 +4666,43 @@ function toggleCsvPanel() {
 }
 
 // ====== Apps Script 코드 접기/펼치기 ======
+// ====== 관리자 비밀번호 ======
+const ADMIN_PW = '3864';
+
+function checkAdminPw() {
+  const input = document.getElementById('admin-pw-input');
+  const error = document.getElementById('admin-pw-error');
+  if (input.value === ADMIN_PW) {
+    document.getElementById('admin-lock-box').style.display = 'none';
+    document.getElementById('admin-content').style.display = 'block';
+    error.style.display = 'none';
+    input.value = '';
+    // 설정값 로드
+    loadSettings();
+  } else {
+    error.style.display = 'block';
+    input.value = '';
+    input.focus();
+  }
+}
+
+function lockAdmin() {
+  document.getElementById('admin-lock-box').style.display = 'block';
+  document.getElementById('admin-content').style.display = 'none';
+  document.getElementById('admin-pw-error').style.display = 'none';
+}
+
+// ====== 다크모드 토글 ======
+function toggleDarkMode() {
+  const isDark = document.body.classList.toggle('dark-mode');
+  const btn = document.getElementById('dark-mode-toggle');
+  btn.innerHTML = isDark ? '☀️ 라이트모드' : '🌙 다크모드';
+  btn.style.background = isDark ? '#1e3a2e' : 'var(--gray-bg)';
+  btn.style.color = isDark ? '#A5D6A7' : 'var(--text)';
+  btn.style.borderColor = isDark ? '#4CAF50' : 'var(--gray-border)';
+  localStorage.setItem('dark_mode', isDark ? '1' : '0');
+}
+
 function toggleAppsScript() {
   const body = document.getElementById('apps-script-body');
   const icon = document.getElementById('apps-script-toggle-icon');
