@@ -1,4 +1,4 @@
-const CACHE_NAME = 'watermap-v2';
+const CACHE_NAME = 'watermap-v3';
 
 self.addEventListener('install', function(e) {
   self.skipWaiting();
