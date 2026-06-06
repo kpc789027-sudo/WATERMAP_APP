@@ -252,6 +252,13 @@ body.dark-mode .record-card { background: #1E1E1E; border-color: #333; }
 body.dark-mode .setting-label { color: #E8E8E8; }
 body.dark-mode .setting-sub { color: #888; }
 body.dark-mode .google-setup { background: #1a3328; border-color: #2d5c3f; }
+
+/* 라디오 버튼 포함 label 흰색 */
+body.dark-mode #tab-soil label[style*="cursor"],
+body.dark-mode #tab-tree label[style*="cursor"] {
+  color: #FFFFFF !important;
+  font-weight: 600 !important;
+}
 body.dark-mode .field-error { background: #2e1a1a !important; outline-color: #FF6B6B !important; }
 
 /* 헤더(topbar) - 다크모드에서도 녹색 그대로 유지 */
@@ -482,6 +489,15 @@ body.dark-mode #tab-tree table td:first-child {
           </select>
           <input type="text" id="soil-plot-no" placeholder="예) A-001 (또는 설정탭에서 불러오기)" oninput="updatePhotoNames(); syncToTree()" onkeydown="nextFieldOnEnter(event,'soil-date')">
         </div>
+        <!-- 주소 및 지도 연동 -->
+        <div id="plot-address-box" style="display:none;margin-top:-8px;margin-bottom:8px;padding:10px 12px;background:var(--green-light);border-radius:var(--radius-sm);border:1px solid var(--green-mid, #b2dfb2);">
+          <div style="font-size:13px;color:var(--text-sub);margin-bottom:6px;">📍 조사지 위치</div>
+          <div id="plot-address-text" style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px;line-height:1.5;">주소 불러오는 중...</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" onclick="copyPlotAddress()" style="flex:1;min-width:80px;padding:8px 10px;background:var(--gray-bg);border:1px solid var(--gray-border);border-radius:var(--radius-sm);font-size:13px;font-weight:600;color:var(--text);cursor:pointer;">📋 주소복사</button>
+            <button type="button" onclick="openKakaoMap()" style="flex:1;min-width:80px;padding:8px 10px;background:#FEE500;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:700;color:#3C1E1E;cursor:pointer;">🗺 카카오맵</button>
+          </div>
+        </div>
         <div class="field">
           <label>조사지 이동 필요성</label>
           <div style="display:flex;gap:20px;padding:8px 0;">
@@ -617,7 +633,7 @@ body.dark-mode #tab-tree table td:first-child {
         </div>
         <div class="field">
           <label>B층 토심</label>
-          <select id="soil-depth-b" onchange="focusNext('soil-color-a-hue')"><option value="">선택</option></select>
+          <select id="soil-depth-b" onchange="focusNext('soil-color-a-hue')" onfocus="scrollSelectTo(this,30)" onclick="scrollSelectTo(this,30)"><option value="">선택</option></select>
         </div>
       </div>
 
@@ -814,7 +830,7 @@ body.dark-mode #tab-tree table td:first-child {
         </div>
       </div>
       <div style="margin-top:6px;display:flex;align-items:center;gap:8px;">
-        <span style="font-size:16px;font-weight:700;color:var(--text);">임종</span>
+        <span style="font-size:16px;font-weight:700;color:var(--green-dark);">임종</span>
         <label style="display:flex;align-items:center;gap:8px;font-size:17px;cursor:pointer;padding:6px 0;">
           <input type="radio" name="tree-forest-type" id="tree-type-natural" value="천연림"> 천연림
         </label>
@@ -936,7 +952,7 @@ body.dark-mode #tab-tree table td:first-child {
             <text x="87" y="90" text-anchor="middle" font-size="9" fill="var(--text-sub)">SE</text>
             <text x="33" y="90" text-anchor="middle" font-size="9" fill="var(--text-sub)">SW</text>
             <text x="33" y="36" text-anchor="middle" font-size="9" fill="var(--text-sub)">NW</text>
-            <g id="compass-needle" style="transform-origin:60px 60px;transform:rotate(0deg);transition:transform 0.2s ease;">
+            <g id="compass-needle" style="transform-origin:60px 60px;transform:rotate(0deg);">
               <polygon points="60,10 55,60 65,60" fill="#E24B4A"/>
               <polygon points="60,110 55,60 65,60" fill="var(--text-sub)" opacity="0.5"/>
             </g>
@@ -1424,7 +1440,7 @@ function doGet(e) {
     if (!sheet) return json({ teams: [] });
     const data = sheet.getDataRange().getValues();
     const teams = [...new Set(
-      data.slice(1).map(r => (r[3] || '').toString().trim()).filter(Boolean)
+      data.slice(1).map(r => (r[6] || '').toString().trim()).filter(Boolean)
     )];
     return json({ teams });
   }
@@ -1434,14 +1450,31 @@ function doGet(e) {
     const sheet = ss.getSheetByName(PLOT_SHEET);
     if (!sheet) return json({ plots: [] });
     const data = sheet.getDataRange().getValues();
+
+    // 현장조사(입지 및 토양) 시트에서 업로드된 조사지번호 목록 추출
+    const soilSheetForCheck = ss.getSheetByName(SOIL_SHEET);
+    const uploadedPlotNos = new Set();
+    if (soilSheetForCheck && soilSheetForCheck.getLastRow() > 1) {
+      const soilData = soilSheetForCheck.getDataRange().getValues();
+      soilData.slice(1).forEach(r => {
+        const pn = (r[2] || '').toString().trim();
+        if (pn) uploadedPlotNos.add(pn);
+      });
+    }
+
     const plots = data.slice(1)
-      .filter(r => r[3] == team && (r[5] || '').toString().trim() === '')
+      .filter(r => r[6] == team && (r[8] || '').toString().trim() === '')
       .map(r => ({
         basin:     r[0],
         basinCode: r[1],
-        plotNo:    r[2],
-        team:      r[3],
-        week:      r[4]
+        plotNo:    r[2].toString().trim(),
+        x:         r[3] ? r[3].toString().trim() : '',
+        y:         r[4] ? r[4].toString().trim() : '',
+        address:   r[5] ? r[5].toString().trim() : '',
+        team:      r[6],
+        week:      r[7],
+        // 현장조사 시트에 있으면 완료
+        done:      uploadedPlotNos.has(r[2].toString().trim()) ? '완료' : ''
       }));
     return json({ plots });
   }
@@ -1560,6 +1593,11 @@ function json(obj) {
 </div>
 
 <script>
+// ====== ★ 관리자 설정 (여기만 수정하면 전체 적용) ======
+const MASTER_SCRIPT_URL   = 'https://script.google.com/macros/s/AKfycbzpx33WGdJr52Z1d9c_n5zgtN6L76FyJ4MoueM8wl2fxANVtL5wVgM4VSgWHOOq1dGz/exec';
+const MASTER_DRIVE_FOLDER = '1p4YEtBtK0MqNYNzHFUTCw24I4pMH_FmA';
+// =====================================================
+
 // ====== 전역 상태 ======
 let currentTab = 'tab-soil';
 let treeRowCount = 0;
@@ -1615,6 +1653,34 @@ async function idbClear() {
     tx.objectStore('photos').clear();
     tx.oncomplete = resolve;
     tx.onerror = e => reject(e.target.error);
+  });
+}
+
+// ★ 조사지번호 포함 IDB 키 생성 헬퍼
+// 일반사진: thumb_plotNo_슬롯인덱스  (썸네일 전용)
+// 이동사진: thumb_move_plotNo_슬롯인덱스
+// 업로드용 원본: photo_슬롯인덱스 (현재 작업 중인 1개 조사지만, 기존 그대로)
+function idbThumbKey(plotNo, idx)     { return 'thumb_' + plotNo + '_' + idx; }
+function idbMoveThumbKey(plotNo, idx) { return 'thumb_move_' + plotNo + '_' + idx; }
+
+// 썸네일(질 0.15) 생성 헬퍼
+function makeMicroThumb(base64, isPortrait) {
+  return new Promise(resolve => {
+    const TW = isPortrait ? 113 : 150, TH = isPortrait ? 150 : 113;
+    const tmpImg = new Image();
+    tmpImg.onload = () => {
+      try {
+        const c = document.createElement('canvas');
+        c.width = TW; c.height = TH;
+        c.getContext('2d').drawImage(tmpImg, 0, 0, TW, TH);
+        const thumb = c.toDataURL('image/jpeg', 0.15);
+        c.width = 0; c.height = 0;
+        tmpImg.src = '';
+        resolve(thumb);
+      } catch(e) { resolve(null); }
+    };
+    tmpImg.onerror = () => resolve(null);
+    tmpImg.src = 'data:image/jpeg;base64,' + base64;
   });
 }
 
@@ -1750,54 +1816,96 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
+// ====== 드롭다운 자동 스크롤 ======
+function scrollSelectTo(sel, targetVal) {
+  if (sel.value) return; // 이미 값 선택된 경우 스크롤 안 함
+  for (let i = 0; i < sel.options.length; i++) {
+    if (String(sel.options[i].value) === String(targetVal) ||
+        String(sel.options[i].text)  === String(targetVal)) {
+      sel.options[i].selected = true;
+      break;
+    }
+  }
+}
+
 // ====== 나침반 ======
 (function() {
-  var _lastDeg = null;
+  var _displayDeg = null;   // 현재 화면에 표시된 각도
+  var _targetDeg  = null;   // 목표 각도 (최신 스무딩값)
+  var _rafId      = null;   // requestAnimationFrame ID
 
-  function updateCompass(deg) {
-    if (deg === null || deg === undefined || isNaN(deg)) return;
-    deg = Math.round(((deg % 360) + 360) % 360);
-    _lastDeg = deg;
-    var needle  = document.getElementById('compass-needle');
-    var degEl   = document.getElementById('compass-deg');
-    var dirText = document.getElementById('compass-dir-text');
-    var dirSub  = document.getElementById('compass-dir-sub');
-    if (!needle) return;
-    needle.style.transform = 'rotate(' + deg + 'deg)';
-    var dirs   = ['N','NE','E','SE','S','SW','W','NW'];
-    var dirsKo = ['북','북동','동','남동','남','남서','서','북서'];
-    var idx = Math.round(deg / 45) % 8;
-    if (degEl)   degEl.textContent   = dirs[idx] + ' ' + deg + '°';
-    if (dirText) dirText.textContent = dirs[idx];
-    if (dirSub)  dirSub.textContent  = dirsKo[idx] + ' ' + deg + '°';
-  }
+  // ── 안정화 파라미터 ──────────────────────────────
+  var SAMPLE_SIZE   = 20;   // 샘플 개수 (클수록 안정적, 반응 느림)
+  var MIN_CHANGE    = 2;    // 이 각도 미만 변화는 무시 (잔떨림 제거)
+  var LERP_FACTOR   = 0.08; // 보간 속도 (0.0~1.0, 작을수록 부드럽고 느림)
+  // ────────────────────────────────────────────────
 
-  // 스무딩: 최근 10개 값 평균으로 흔들림 방지
   var _samples = [];
-  var SAMPLE_SIZE = 10;
 
+  // 각도 평균 (0/360 경계 안전 처리)
   function smoothDeg(newDeg) {
     _samples.push(newDeg);
     if (_samples.length > SAMPLE_SIZE) _samples.shift();
-    // 각도 평균 (0/360 경계 처리)
     var sinSum = 0, cosSum = 0;
     for (var i = 0; i < _samples.length; i++) {
       var rad = _samples[i] * Math.PI / 180;
       sinSum += Math.sin(rad);
       cosSum += Math.cos(rad);
     }
-    var avg = Math.atan2(sinSum / _samples.length, cosSum / _samples.length) * 180 / Math.PI;
-    return (avg + 360) % 360;
+    return (Math.atan2(sinSum, cosSum) * 180 / Math.PI + 360) % 360;
+  }
+
+  // 두 각도 간 최단 회전 차이 (-180 ~ +180)
+  function angleDiff(a, b) {
+    var d = ((b - a) % 360 + 540) % 360 - 180;
+    return d;
+  }
+
+  // rAF 루프: 목표각도까지 부드럽게 보간
+  function animLoop() {
+    if (_targetDeg === null) { _rafId = null; return; }
+    if (_displayDeg === null) _displayDeg = _targetDeg;
+
+    var diff = angleDiff(_displayDeg, _targetDeg);
+
+    // 잔떨림 억제: 목표와 차이가 MIN_CHANGE 미만이면 고정
+    if (Math.abs(diff) < MIN_CHANGE) {
+      _rafId = requestAnimationFrame(animLoop);
+      return;
+    }
+
+    _displayDeg = (_displayDeg + diff * LERP_FACTOR + 360) % 360;
+
+    var needle = document.getElementById('compass-needle');
+    if (needle) {
+      // 붉은 침(위쪽)이 폰이 가리키는 방향 = 나침반 판을 heading 반대로 회전
+      needle.style.transform = 'rotate(' + (-_displayDeg) + 'deg)';
+    }
+
+    var deg    = Math.round(_displayDeg);
+    var dirs   = ['N','NE','E','SE','S','SW','W','NW'];
+    var dirsKo = ['북','북동','동','남동','남','남서','서','북서'];
+    var idx    = Math.round(deg / 45) % 8;
+    var degEl   = document.getElementById('compass-deg');
+    var dirText = document.getElementById('compass-dir-text');
+    var dirSub  = document.getElementById('compass-dir-sub');
+    if (degEl)   degEl.textContent   = dirs[idx] + ' ' + deg + '°';
+    if (dirText) dirText.textContent = dirs[idx];
+    if (dirSub)  dirSub.textContent  = dirsKo[idx] + ' ' + deg + '°';
+
+    _rafId = requestAnimationFrame(animLoop);
   }
 
   function onEvent(e) {
     var raw = null;
     if (e.webkitCompassHeading != null && !isNaN(e.webkitCompassHeading)) {
-      raw = e.webkitCompassHeading; // iOS
+      raw = e.webkitCompassHeading;          // iOS: 이미 자북 기준
     } else if (e.alpha != null && !isNaN(e.alpha)) {
-      raw = 360 - e.alpha; // Android
+      raw = (360 - e.alpha + 360) % 360;    // Android
     }
-    if (raw !== null) updateCompass(smoothDeg(raw));
+    if (raw === null) return;
+    _targetDeg = smoothDeg(raw);
+    if (_rafId === null) _rafId = requestAnimationFrame(animLoop);
   }
 
   function startListening() {
@@ -1842,11 +1950,13 @@ document.addEventListener('DOMContentLoaded', function() {
 })();
 
 // ====== 사진 ZIP 다운로드 ======
-async function downloadPhotosAsZip(plotNo) {
+async function downloadPhotosAsZip(plotNo, onlyNew = false) {
   try {
     const zip = new JSZip();
     let count = 0;
 
+    // onlyNew=true(수정 재업로드): 새로 찍은 사진(원본 있는 것)만 ZIP
+    // onlyNew=false(최초 업로드): 전체 원본 ZIP
     // 일반 사진 (12장)
     for (const [idx, p] of Object.entries(photoData)) {
       const stored = await idbGet('photo_' + idx);
@@ -2116,7 +2226,7 @@ function buildSelectOptions() {
   fillRange('soil-org-f', 0, 5.0, 0.1);
   fillRange('soil-org-h', 0, 5.0, 0.1);
   fillRange('soil-depth-a',  1,  100, 1);
-  fillRange('soil-depth-b',  1,  100, 1);
+  fillRange('soil-depth-b', 1, 100, 1);
   fillRange('soil-gravel-a', 0,  100, 1);
   fillRange('soil-gravel-b', 0,  100, 1);
   fillRange('soil-density-a',1,  30,  1);
@@ -2394,7 +2504,7 @@ function saveQueue(q) { localStorage.setItem('upload_queue', JSON.stringify(q));
 // ====== 앱 시작 시 미완료 업로드 자동 재시도 ======
 async function autoRetryUpload() {
   if (!navigator.onLine) return;
-  const scriptUrl = localStorage.getItem('script_url') || 'https://script.google.com/macros/s/AKfycbzpx33WGdJr52Z1d9c_n5zgtN6L76FyJ4MoueM8wl2fxANVtL5wVgM4VSgWHOOq1dGz/exec';
+  const scriptUrl = localStorage.getItem('script_url') || MASTER_SCRIPT_URL;
   if (!scriptUrl) return;
 
   const records = JSON.parse(localStorage.getItem('survey_records') || '[]');
@@ -2418,7 +2528,7 @@ async function autoRetryUpload() {
       const weekCode = (rec.soilRow && rec.soilRow[34])
         || (window._plotMap && window._plotMap[plotNo] && window._plotMap[plotNo].week)
         || '주차미정';
-      const folderId = localStorage.getItem('drive_folder') || '1p4YEtBtK0MqNYNzHFUTCw24I4pMH_FmA';
+      const folderId = localStorage.getItem('drive_folder') || MASTER_DRIVE_FOLDER;
 
       // 입지토양 미완료
       if (!rec.soilUploaded && rec.soilRow) {
@@ -2500,6 +2610,13 @@ async function autoRetryUpload() {
   if (successCount > 0 || failedCount > 0 || failedPhotoCount > 0) {
     renderRecordsList();
     updateSyncBadge();
+    // 자동 업로드 성공한 조사지들 드롭다운 즉시 완료 표시
+    if (successCount > 0) {
+      const successPlots = JSON.parse(localStorage.getItem('survey_records') || '[]')
+        .filter(r => r.soilUploaded)
+        .map(r => r.plotNo);
+      successPlots.forEach(pn => markPlotDoneInDropdown(pn));
+    }
   }
 }
 
@@ -2516,7 +2633,7 @@ function updateSyncBadge() {
 }
 
 async function flushOfflineQueue() {
-  const scriptUrl = localStorage.getItem('script_url') || 'https://script.google.com/macros/s/AKfycbzpx33WGdJr52Z1d9c_n5zgtN6L76FyJ4MoueM8wl2fxANVtL5wVgM4VSgWHOOq1dGz/exec';
+  const scriptUrl = localStorage.getItem('script_url') || MASTER_SCRIPT_URL;
   if (!scriptUrl) return;
   let q = getQueue();
   if (q.length === 0) return;
@@ -2750,7 +2867,7 @@ async function saveData() {
   const plotNoInput  = document.getElementById('soil-plot-no');
   const plotNo = (plotNoSelect && plotNoSelect.style.display !== 'none' ? plotNoSelect.value : '') 
                  || (plotNoInput ? plotNoInput.value.trim() : '') || '';
-  const scriptUrl = localStorage.getItem('script_url') || 'https://script.google.com/macros/s/AKfycbzpx33WGdJr52Z1d9c_n5zgtN6L76FyJ4MoueM8wl2fxANVtL5wVgM4VSgWHOOq1dGz/exec';
+  const scriptUrl = localStorage.getItem('script_url') || MASTER_SCRIPT_URL;
   const soilRow = getSoilData();
   const treeRows = getTreeRows();
 
@@ -2810,7 +2927,7 @@ async function saveData() {
 
   // 수정 모드여도 uploaded:false인 사진은 업로드 (새로 찍은 사진)
   // 신규 모드면 모든 사진 업로드
-  const folderId = localStorage.getItem('drive_folder') || '1p4YEtBtK0MqNYNzHFUTCw24I4pMH_FmA';
+  const folderId = localStorage.getItem('drive_folder') || MASTER_DRIVE_FOLDER;
 
   const photoPayloadList = await Promise.all(
     Object.entries(photoData).map(async ([idx, p]) => {
@@ -2918,11 +3035,13 @@ async function saveData() {
 
   if (failedPhotos.length === 0) {
     showToast('✓ Google Sheets 업로드 완료!', 'success');
+    markPlotDoneInDropdown(plotNo); // 드롭다운 즉시 완료 표시
   }
 
   const hasNewPhotos = photoPayloads.filter(Boolean).length > 0;
   if (!isEditMode2 || hasNewPhotos) {
-    await downloadPhotosAsZip(plotNo);
+    // 수정 모드면 새로 찍은 사진만 ZIP, 최초 업로드면 전체 ZIP
+    await downloadPhotosAsZip(plotNo, isEditMode2);
   }
 
   // 입지토양 탭에서 저장 시 → 임목조사 탭으로 자동 이동
@@ -3114,6 +3233,11 @@ function handleMovePhoto(event, i) {
 
       movePhotoData[i] = { filename };
       idbSet('move_photo_' + i, { base64: base64m, filename }).catch(console.error);
+      // 썸네일: 조사지번호 포함 키로 영구 저장 (복원용)
+      const _plotNoForMoveThumb = plotNo;
+      makeMicroThumb(base64m, false).then(ts => {
+        if (ts) idbSet(idbMoveThumbKey(_plotNoForMoveThumb, i), { base64: ts.split(',')[1], filename }).catch(console.error);
+      });
       scheduleDraftSave();
 
       // 썸네일 작은 크기로 별도 생성
@@ -3137,20 +3261,25 @@ function handleMovePhoto(event, i) {
           slot.style.cursor = 'pointer';
           slot.onclick = () => openPhotoSheet('filled', 'move', i, MOVE_PHOTO_SLOTS[i]);
         }
+        clearTimeout(_safetyTimerM);
+        _photoProcessing = false;
+      };
+      thumbImg.onerror = () => {
+        clearTimeout(_safetyTimerM);
+        _photoProcessing = false;
       };
       thumbImg.src = 'data:image/jpeg;base64,' + base64m;
 
     } catch(err) {
       URL.revokeObjectURL(blobUrl);
-      showToast('사진 처리 실패 — 다시 시도해주세요.', 'error');
-    } finally {
-      clearTimeout(_safetyTimer);
+      clearTimeout(_safetyTimerM);
       _photoProcessing = false;
+      showToast('사진 처리 실패 — 다시 시도해주세요.', 'error');
     }
   };
   tmpImg.onerror = () => {
     URL.revokeObjectURL(blobUrl);
-    clearTimeout(_safetyTimer);
+    clearTimeout(_safetyTimerM);
     _photoProcessing = false;
     showToast('사진 로드 실패 — 다시 시도해주세요.', 'error');
   };
@@ -3302,7 +3431,7 @@ function buildDbhOpts() {
 // 수고 드롭다운: 1m ~ 50m (0.5 단위)
 function buildHeightOpts() {
   let o = '<option value="">-</option>';
-  for (let v = 1; v <= 50; v += 0.5) {
+  for (let v = 0.5; v <= 50; v += 0.5) {
     o += '<option>' + v.toFixed(1) + '</option>';
   }
   return o;
@@ -3369,6 +3498,8 @@ function buildTreeTable() {
       selHt.style.background = 'transparent';
       selHt.style.outline = '';
     });
+    selHt.addEventListener('focus', () => scrollSelectTo(selHt, '10.0'));
+    selHt.addEventListener('click', () => scrollSelectTo(selHt, '10.0'));
     tdHt.appendChild(selHt);
     tr.appendChild(tdHt);
 
@@ -3500,8 +3631,18 @@ async function photoSheetAction3() {
   if (!_sheetState) return;
   const { type, idx } = _sheetState;
   closePhotoSheet();
-  const key = type === 'photo' ? 'photo_' + idx : 'move_photo_' + idx;
-  const stored = await idbGet(key);
+  const plotNoForView = document.getElementById('soil-plot-no')?.value || '';
+  let stored = null;
+  if (plotNoForView) {
+    stored = type === 'photo'
+      ? await idbGet(idbThumbKey(plotNoForView, idx))
+      : await idbGet(idbMoveThumbKey(plotNoForView, idx));
+  }
+  // fallback: 원본 키
+  if (!stored || !stored.base64) {
+    const key = type === 'photo' ? 'photo_' + idx : 'move_photo_' + idx;
+    stored = await idbGet(key);
+  }
   if (!stored || !stored.base64) {
     showToast('사진 데이터를 불러올 수 없습니다', 'error');
     return;
@@ -3624,8 +3765,10 @@ function triggerMovePhotoGallery(idx) {
 
 // 이동사진 삭제
 function deleteMovePhotoSlot(i) {
+  const _delMovePlotNo = document.getElementById('soil-plot-no')?.value || '';
   delete movePhotoData[i];
   idbDelete('move_photo_' + i).catch(console.error);
+  if (_delMovePlotNo) idbDelete(idbMoveThumbKey(_delMovePlotNo, i)).catch(console.error);
   const slot = document.getElementById('photo-move-slot-' + i);
   if (slot) {
     slot.className = 'photo-slot landscape-slot';
@@ -3719,29 +3862,26 @@ function handlePhoto(event, idx) {
       canvas.width = 0; canvas.height = 0;
 
       photoData[idx] = { filename };
+      // 원본(0.75): 현재 작업 조사지용 — 업로드/ZIP에 사용
       idbSet('photo_' + idx, { base64, filename }).catch(console.error);
       scheduleDraftSave();
 
-      // 썸네일: 작은 크기로 별도 생성 (메모리 절약)
-      const thumbCanvas = document.createElement('canvas');
-      const THUMB_W = 200, THUMB_H = 150;
-      thumbCanvas.width = THUMB_W; thumbCanvas.height = THUMB_H;
-      const thumbCtx = thumbCanvas.getContext('2d');
-      const thumbImg = new Image();
-      thumbImg.onload = () => {
-        thumbCtx.drawImage(thumbImg, 0, 0, THUMB_W, THUMB_H);
-        const thumbSrc = thumbCanvas.toDataURL('image/jpeg', 0.2);
-        thumbCanvas.width = 0; thumbCanvas.height = 0;
-        thumbImg.src = '';
+      // 썸네일: 조사지번호 포함 키로 영구 저장 (복원용)
+      const _plotNoForThumb = plotNo;
+      makeMicroThumb(base64, isPortrait).then(thumbSrc => {
+        if (thumbSrc) {
+          idbSet(idbThumbKey(_plotNoForThumb, idx), { base64: thumbSrc.split(',')[1], filename }).catch(console.error);
+        }
 
         const slot = document.getElementById('photo-slot-' + idx);
+        if (!slot) { clearTimeout(_safetyTimer); _photoProcessing = false; return; }
         slot.classList.remove('photo-required-error');
         const isPortraitFilled = ['전토심','토양단면'].includes(PHOTO_SLOTS[idx]);
         slot.className = 'photo-slot ' + (isPortraitFilled ? 'portrait-slot' : 'landscape-slot');
         slot.innerHTML = '';
         slot.onclick = null;
         const thumb = document.createElement('img');
-        thumb.src = thumbSrc;
+        thumb.src = thumbSrc || ('data:image/jpeg;base64,' + base64);
         thumb.alt = PHOTO_SLOTS[idx];
         thumb.style.cssText = 'width:100%;height:100%;object-fit:cover;position:absolute;inset:0;';
         slot.appendChild(thumb);
@@ -3752,20 +3892,20 @@ function handlePhoto(event, idx) {
         slot.style.cursor = 'pointer';
         slot.onclick = () => openPhotoSheet('filled', 'photo', idx, PHOTO_SLOTS[idx]);
         showToast('사진 추가됨: ' + PHOTO_SLOTS[idx] + ' (' + kb + 'KB)', 'success');
-      };
-      thumbImg.src = 'data:image/jpeg;base64,' + base64;
+        clearTimeout(_safetyTimer);
+        _photoProcessing = false;
+      });
 
     } catch(err) {
       URL.revokeObjectURL(blobUrl);
-      showToast('사진 처리 실패 — 다시 시도해주세요.', 'error');
-    } finally {
-      clearTimeout(_safetyTimerM);
+      clearTimeout(_safetyTimer);
       _photoProcessing = false;
+      showToast('사진 처리 실패 — 다시 시도해주세요.', 'error');
     }
   };
   tmpImg.onerror = () => {
     URL.revokeObjectURL(blobUrl);
-    clearTimeout(_safetyTimerM);
+    clearTimeout(_safetyTimer);
     _photoProcessing = false;
     showToast('사진 로드 실패 — 다시 시도해주세요.', 'error');
   };
@@ -3773,8 +3913,10 @@ function handlePhoto(event, idx) {
 }
 
 function deletePhoto(idx) {
+  const _delPlotNo = document.getElementById('soil-plot-no')?.value || '';
   delete photoData[idx];
   idbDelete('photo_' + idx).catch(console.error);
+  if (_delPlotNo) idbDelete(idbThumbKey(_delPlotNo, idx)).catch(console.error);
   const slot = document.getElementById('photo-slot-' + idx);
   slot.innerHTML = '';
   slot.style.cursor = 'pointer';
@@ -3793,7 +3935,7 @@ function deletePhoto(idx) {
 }
 // ====== 팀 관리 (구글 시트 기반) ======
 async function loadTeamList() {
-  const scriptUrl = localStorage.getItem('script_url') || 'https://script.google.com/macros/s/AKfycbzpx33WGdJr52Z1d9c_n5zgtN6L76FyJ4MoueM8wl2fxANVtL5wVgM4VSgWHOOq1dGz/exec';
+  const scriptUrl = localStorage.getItem('script_url') || MASTER_SCRIPT_URL;
   const btn    = document.getElementById('load-team-btn');
   const status = document.getElementById('team-load-status');
 
@@ -3864,7 +4006,7 @@ function buildTeamInputs() {}
 function saveTeamNames()  {}
 // ====== 포인트 불러오기 ======
 async function loadPlotPoints() {
-  const scriptUrl = localStorage.getItem('script_url') || 'https://script.google.com/macros/s/AKfycbzpx33WGdJr52Z1d9c_n5zgtN6L76FyJ4MoueM8wl2fxANVtL5wVgM4VSgWHOOq1dGz/exec';
+  const scriptUrl = localStorage.getItem('script_url') || MASTER_SCRIPT_URL;
   const botSel2   = document.getElementById('setting-team-code');
   const topSel2   = document.getElementById('setting-team-code-top');
   const teamCode  = (botSel2?.value || topSel2?.value || '').trim()
@@ -3916,58 +4058,81 @@ function applyLoadedPlots(plots, teamCode) {
   const sel = document.getElementById('soil-plot-no-select');
   const inp = document.getElementById('soil-plot-no');
 
-  const total     = plots.length;
-  const doneCount = plots.filter(p => {
+  const isDoneFn = p => {
     const d = typeof p === 'object' ? p.done : '';
     return d === '완료' || d === 'O' || d === 'Y';
-  }).length;
+  };
+
+  const total     = plots.length;
+  const doneCount = plots.filter(isDoneFn).length;
   const todoCount = total - doneCount;
 
-  // 주차별 그룹 분류
-  const weekGroups = {};
-  plots.forEach(p => {
-    const week = (typeof p === 'object' ? p.week : '') || '주차미정';
-    if (!weekGroups[week]) weekGroups[week] = [];
-    weekGroups[week].push(p);
-  });
-  const weekKeys = Object.keys(weekGroups).sort((a, b) => {
-    const na = parseInt(a) || 9999;
-    const nb = parseInt(b) || 9999;
-    return na - nb;
-  });
+  // 미완료/완료로 분리
+  const todoPlots = plots.filter(p => !isDoneFn(p));
+  const donePlots = plots.filter(p => isDoneFn(p));
+
+  // 주차별 그룹 생성 헬퍼
+  function groupByWeek(arr) {
+    const groups = {};
+    arr.forEach(p => {
+      const week = (typeof p === 'object' ? p.week : '') || '주차미정';
+      if (!groups[week]) groups[week] = [];
+      groups[week].push(p);
+    });
+    return groups;
+  }
+  function sortedWeekKeys(groups) {
+    return Object.keys(groups).sort((a, b) => (parseInt(a)||9999) - (parseInt(b)||9999));
+  }
 
   let optHtml = `<option value="">— ${teamCode} · 총${total}개 (미완료 ${todoCount}개) —</option>`;
 
-  if (weekKeys.length > 1) {
-    // 주차가 여러 개면 optgroup으로 묶기 (주차 표시는 그룹 헤더에만)
-    weekKeys.forEach(week => {
-      const group = weekGroups[week];
-      const groupDone = group.filter(p => {
-        const d = typeof p === 'object' ? p.done : '';
-        return d === '완료' || d === 'O' || d === 'Y';
-      }).length;
-      optHtml += `<optgroup label="📅 ${week}  ${group.length}개 (완료 ${groupDone})">`;
-      group.forEach(p => {
+  // ── 미완료 그룹 (위) — 주황색 배경 헤더 ─────────────────────
+  if (todoPlots.length > 0) {
+    const todoWeekGroups = groupByWeek(todoPlots);
+    const todoWeekKeys   = sortedWeekKeys(todoWeekGroups);
+    if (todoWeekKeys.length > 1) {
+      todoWeekKeys.forEach(week => {
+        const group = todoWeekGroups[week];
+        optHtml += `<optgroup label="🟠 ${week}주차 · 미완료 ${group.length}개">`;
+        group.forEach(p => {
+          const plotNo = typeof p === 'string' ? p : p.plotNo;
+          optHtml += `<option value="${plotNo}" style="color:#E07B00;font-weight:700;">　${plotNo}</option>`;
+        });
+        optHtml += '</optgroup>';
+      });
+    } else {
+      optHtml += `<optgroup label="🟠 미완료 ${todoPlots.length}개">`;
+      todoPlots.forEach(p => {
         const plotNo = typeof p === 'string' ? p : p.plotNo;
-        const done   = typeof p === 'object' ? p.done : '';
-        const isDone = done === '완료' || done === 'O' || done === 'Y';
-        // 조사지번호만 표시 (주차 라벨 없음)
-        let label = plotNo;
-        if (isDone) label += '  ✓완료';
-        optHtml += `<option value="${plotNo}"${isDone ? ' style="color:#aaa;"' : ''}>${label}</option>`;
+        optHtml += `<option value="${plotNo}" style="color:#E07B00;font-weight:700;">　${plotNo}</option>`;
       });
       optHtml += '</optgroup>';
-    });
-  } else {
-    // 주차 단일이면 단순 목록 (주차 라벨 없음)
-    plots.forEach(p => {
-      const plotNo = typeof p === 'string' ? p : p.plotNo;
-      const done   = typeof p === 'object' ? p.done : '';
-      const isDone = done === '완료' || done === 'O' || done === 'Y';
-      let label = plotNo;
-      if (isDone) label += '  ✓완료';
-      optHtml += `<option value="${plotNo}"${isDone ? ' style="color:#aaa;"' : ''}>${label}</option>`;
-    });
+    }
+  }
+
+  // ── 완료 그룹 (아래) — 초록색 배경 헤더 ─────────────────────
+  if (donePlots.length > 0) {
+    const doneWeekGroups = groupByWeek(donePlots);
+    const doneWeekKeys   = sortedWeekKeys(doneWeekGroups);
+    if (doneWeekKeys.length > 1) {
+      doneWeekKeys.forEach(week => {
+        const group = doneWeekGroups[week];
+        optHtml += `<optgroup label="🟢 ${week}주차 · 완료 ${group.length}개">`;
+        group.forEach(p => {
+          const plotNo = typeof p === 'string' ? p : p.plotNo;
+          optHtml += `<option value="${plotNo}" style="color:#2E7D32;font-weight:700;">　✓ ${plotNo}</option>`;
+        });
+        optHtml += '</optgroup>';
+      });
+    } else {
+      optHtml += `<optgroup label="🟢 완료 ${donePlots.length}개">`;
+      donePlots.forEach(p => {
+        const plotNo = typeof p === 'string' ? p : p.plotNo;
+        optHtml += `<option value="${plotNo}" style="color:#2E7D32;font-weight:700;">　✓ ${plotNo}</option>`;
+      });
+      optHtml += '</optgroup>';
+    }
   }
 
   sel.innerHTML = optHtml;
@@ -3975,12 +4140,32 @@ function applyLoadedPlots(plots, teamCode) {
   inp.style.display = 'none';
   inp.value = '';
   localStorage.setItem('loaded_team', teamCode);
-  // 포인트 데이터를 맵으로 저장 (선택 시 유역명/코드 자동입력용)
+
+  // 포인트 데이터를 맵으로 저장 (선택 시 유역명/코드/좌표/주소 자동입력용)
   const plotMap = {};
   plots.forEach(p => {
     if (typeof p === 'object') plotMap[p.plotNo] = p;
   });
   window._plotMap = plotMap;
+}
+
+// 업로드 성공 후 드롭다운에서 해당 조사지번호를 완료로 즉시 업데이트
+function markPlotDoneInDropdown(plotNo) {
+  const sel = document.getElementById('soil-plot-no-select');
+  if (!sel) return;
+  // loaded_plots 업데이트
+  const saved = localStorage.getItem('loaded_plots');
+  if (!saved) return;
+  const plots = JSON.parse(saved);
+  const idx = plots.findIndex(p => (typeof p === 'object' ? p.plotNo : p) === plotNo);
+  if (idx !== -1) {
+    if (typeof plots[idx] === 'object') plots[idx].done = '완료';
+    else plots[idx] = { plotNo, done: '완료' };
+    localStorage.setItem('loaded_plots', JSON.stringify(plots));
+  }
+  // 드롭다운 즉시 재구성
+  const teamCode = localStorage.getItem('loaded_team') || '';
+  applyLoadedPlots(JSON.parse(localStorage.getItem('loaded_plots') || '[]'), teamCode);
 }
 
 function onPlotSelect(val) {
@@ -4015,16 +4200,212 @@ function onPlotSelect(val) {
     // 조용히 복원하는 핵심 로직만 직접 실행
     _restoreRecordData(existing);
     showToast('[' + val + '] 이전 데이터를 불러왔습니다', 'info');
+  } else {
+    updatePhotoNames();
+    syncToTree();
+  }
+
+  // 주소박스 표시 (좌표 또는 주소가 있을 때)
+  if (val && window._plotMap && window._plotMap[val]) {
+    const p = window._plotMap[val];
+    showPlotAddressBox(p);
+  } else {
+    document.getElementById('plot-address-box').style.display = 'none';
+  }
+}
+
+// ====== 조사지 위치 (TM좌표 → 주소 + 지도 연동) ======
+
+// 현재 선택된 조사지 좌표/주소 전역 저장
+window._currentPlotCoord = null; // { lat, lng, address }
+
+// TM좌표(중부원점) → WGS84(위경도) 변환 후 역지오코딩
+// 카카오 SDK 동적 로드 (처음 필요할 때만 한 번)
+let _kakaoSdkLoading = false;
+let _kakaoSdkLoaded  = false;
+function loadKakaoSdk() {
+  return new Promise((resolve, reject) => {
+    if (_kakaoSdkLoaded && typeof kakao !== 'undefined') { resolve(); return; }
+    if (_kakaoSdkLoading) {
+      // 이미 로딩 중이면 완료 대기
+      const wait = setInterval(() => {
+        if (_kakaoSdkLoaded) { clearInterval(wait); resolve(); }
+      }, 100);
+      return;
+    }
+    _kakaoSdkLoading = true;
+    const s = document.createElement('script');
+    s.type = 'text/javascript';
+    s.src  = '//dapi.kakao.com/v2/maps/sdk.js?appkey=aed708ba5491c8e5d366f37d2fb99dd4&libraries=services&autoload=false';
+    s.onload = () => {
+      kakao.maps.load(() => { _kakaoSdkLoaded = true; _kakaoSdkLoading = false; resolve(); });
+    };
+    s.onerror = () => { _kakaoSdkLoading = false; reject(new Error('카카오 SDK 로드 실패')); };
+    document.head.appendChild(s);
+  });
+}
+
+async function showPlotAddressBox(plotData) {
+  const box    = document.getElementById('plot-address-box');
+  const addrEl = document.getElementById('plot-address-text');
+  if (!box || !addrEl) return;
+
+  // 좌표도 주소도 없으면 박스 숨김
+  if ((!plotData.x || !plotData.y) && (!plotData.address || !plotData.address.trim())) {
+    box.style.display = 'none';
     return;
   }
 
-  updatePhotoNames();
-  syncToTree();
+  box.style.display = 'block';
+
+  // 주소가 시트에 직접 있으면 SDK 없이 바로 표시
+  if (plotData.address && plotData.address.trim()) {
+    const addr = plotData.address.trim();
+    addrEl.textContent = addr;
+    window._currentPlotCoord = { lat: null, lng: null, address: addr, x: plotData.x, y: plotData.y };
+    // TM좌표도 있으면 SDK 로드 후 WGS84 변환 (지도 연동용)
+    if (plotData.x && plotData.y) {
+      loadKakaoSdk().then(() => {
+        tmToWgs84(plotData.x, plotData.y).then(wgs => {
+          if (wgs) { window._currentPlotCoord.lat = wgs.lat; window._currentPlotCoord.lng = wgs.lng; }
+        });
+      }).catch(() => {});
+    }
+    return;
+  }
+
+  // 주소 없고 TM좌표 있으면 SDK 로드 후 변환 + 역지오코딩
+  addrEl.textContent = '주소 변환 중...';
+  try {
+    await loadKakaoSdk();
+    const wgs = await tmToWgs84(plotData.x, plotData.y);
+    if (!wgs) { addrEl.textContent = '좌표 변환 실패'; return; }
+    const addr = await reverseGeocode(wgs.lat, wgs.lng);
+    addrEl.textContent = addr || '주소를 찾을 수 없습니다';
+    window._currentPlotCoord = { lat: wgs.lat, lng: wgs.lng, address: addr, x: plotData.x, y: plotData.y };
+  } catch(e) {
+    addrEl.textContent = '주소 변환 중 오류 발생';
+  }
+}
+
+// TM좌표(중부원점 GRS80) → WGS84 위경도 변환
+// 카카오 좌표변환 API 사용
+function tmToWgs84(tmX, tmY) {
+  return new Promise((resolve) => {
+    if (typeof kakao === 'undefined' || !kakao.maps || !kakao.maps.services) {
+      resolve(null); return;
+    }
+    const proj = kakao.maps.services.Coords;
+    const transcoord = new kakao.maps.services.Geocoder();
+    // TM중부 → WGS84
+    transcoord.transCoord(
+      parseFloat(tmX), parseFloat(tmY),
+      function(result, status) {
+        if (status === kakao.maps.services.Status.OK && result.length > 0) {
+          resolve({ lng: result[0].x, lat: result[0].y });
+        } else {
+          resolve(null);
+        }
+      },
+      { inputCoordSystem: kakao.maps.services.CoordSystem.TM,
+        outputCoordSystem: kakao.maps.services.CoordSystem.WGS84 }
+    );
+  });
+}
+
+// WGS84 위경도 → 주소 (카카오 역지오코딩)
+function reverseGeocode(lat, lng) {
+  return new Promise((resolve) => {
+    if (typeof kakao === 'undefined' || !kakao.maps || !kakao.maps.services) {
+      resolve(null); return;
+    }
+    const geocoder = new kakao.maps.services.Geocoder();
+    geocoder.coord2Address(lng, lat, function(result, status) {
+      if (status === kakao.maps.services.Status.OK && result.length > 0) {
+        const r = result[0];
+        // 도로명 우선, 없으면 지번
+        const addr = (r.road_address ? r.road_address.address_name : null)
+                   || (r.address ? r.address.address_name : null)
+                   || null;
+        resolve(addr);
+      } else {
+        resolve(null);
+      }
+    });
+  });
+}
+
+// 주소 복사
+function copyPlotAddress() {
+  const addrEl = document.getElementById('plot-address-text');
+  if (!addrEl || !addrEl.textContent || addrEl.textContent === '주소 불러오는 중...') return;
+  const addr = addrEl.textContent;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(addr).then(() => showToast('주소가 복사되었습니다', 'success'));
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = addr; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('주소가 복사되었습니다', 'success');
+  }
+}
+
+// 카카오맵 연동
+function openKakaoMap() {
+  const c = window._currentPlotCoord;
+  if (!c) { showToast('위치 정보가 없습니다', 'error'); return; }
+  const addr = c.address || '';
+  if (c.lat && c.lng) {
+    const url = `https://map.kakao.com/link/map/${encodeURIComponent(addr || '조사지')},${c.lat},${c.lng}`;
+    window.open(url, '_blank');
+  } else if (addr) {
+    const url = `https://map.kakao.com/link/search/${encodeURIComponent(addr)}`;
+    window.open(url, '_blank');
+  } else if (c.x && c.y) {
+    // 좌표 변환 아직 안 됐으면 SDK 로드 후 변환 시도
+    loadKakaoSdk().then(() => tmToWgs84(c.x, c.y)).then(wgs => {
+      if (wgs) {
+        window._currentPlotCoord.lat = wgs.lat;
+        window._currentPlotCoord.lng = wgs.lng;
+        const url = `https://map.kakao.com/link/map/조사지,${wgs.lat},${wgs.lng}`;
+        window.open(url, '_blank');
+      } else {
+        showToast('좌표 변환 실패', 'error');
+      }
+    }).catch(() => showToast('카카오 SDK 로드 실패', 'error'));
+  } else {
+    showToast('좌표 또는 주소가 필요합니다', 'error');
+  }
+}
+
+// 티맵 연동
+function openTmap() {
+  const c = window._currentPlotCoord;
+  if (!c) { showToast('위치 정보가 없습니다', 'error'); return; }
+  if (c.lat && c.lng) {
+    // 앱 딥링크 시도 → 실패시 웹으로 fallback
+    const appUrl = `tmap://route?goalx=${c.lng}&goaly=${c.lat}&goalname=${encodeURIComponent(c.address || '조사지')}`;
+    const webUrl = `https://tmap.life/v?goalx=${c.lng}&goaly=${c.lat}&goalname=${encodeURIComponent(c.address || '조사지')}`;
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = appUrl;
+    document.body.appendChild(iframe);
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+      window.open(webUrl, '_blank');
+    }, 1500);
+  } else if (c.address) {
+    const webUrl = `https://tmap.life/v?goalname=${encodeURIComponent(c.address)}`;
+    window.open(webUrl, '_blank');
+  } else {
+    showToast('좌표 또는 주소가 필요합니다', 'error');
+  }
 }
 
 // ====== 구글시트에서 조사지 데이터 불러오기 ======
 async function fetchFromSheet() {
-  const scriptUrl = localStorage.getItem('script_url') || 'https://script.google.com/macros/s/AKfycbzpx33WGdJr52Z1d9c_n5zgtN6L76FyJ4MoueM8wl2fxANVtL5wVgM4VSgWHOOq1dGz/exec';
+  const scriptUrl = localStorage.getItem('script_url') || MASTER_SCRIPT_URL;
   if (!scriptUrl) {
     showToast('Apps Script URL을 먼저 설정해주세요', 'error');
     return;
@@ -4179,83 +4560,65 @@ function _restoreRecordData(rec) {
   syncToTree();
   updatePhotoNames();
 
-  // 사진 슬롯 복원 — IDB에서 썸네일 다시 표시
+  // 사진 슬롯 복원 — 조사지번호 포함 썸네일 키(thumb_plotNo_idx)로 복원
   if (rec.photoList && rec.photoList.length > 0) {
     const SLOTS = ['C_울폐도','N_8M','N_4M_울폐도','E_8M','E_4M_울폐도',
                    'S_8M','S_4M_울폐도','W_8M','W_4M_울폐도','전토심','토양단면','지표면'];
     const MOVE_SLOTS = ['N_기존현황','E_기존현황','S_기존현황','W_기존현황'];
+    const pn = rec.plotNo || '';
 
-    // 일반 사진 12장 복원
-    for (let i = 0; i < SLOTS.length; i++) {
-      const expectedFilename = (rec.plotNo || '') + '(' + SLOTS[i] + ').jpg';
-      const photoEntry = rec.photoList.find(p => p.filename === expectedFilename);
-      if (!photoEntry) continue;
-      (async (idx, filename) => {
-        const stored = await idbGet('photo_' + idx);
-        if (!stored || !stored.base64) return;
-        photoData[idx] = { filename };
-        const slot = document.getElementById('photo-slot-' + idx);
-        if (!slot) return;
-        const isPortrait = ['전토심','토양단면'].includes(SLOTS[idx]);
-        slot.className = 'photo-slot ' + (isPortrait ? 'portrait-slot' : 'landscape-slot');
-        slot.classList.remove('photo-required-error');
-        slot.innerHTML = '';
-        const thumbCanvas = document.createElement('canvas');
-        thumbCanvas.width = 200; thumbCanvas.height = 150;
-        const thumbImg = new Image();
-        thumbImg.onload = () => {
-          thumbCanvas.getContext('2d').drawImage(thumbImg, 0, 0, 200, 150);
-          const thumbSrc = thumbCanvas.toDataURL('image/jpeg', 0.2);
-          thumbCanvas.width = 0; thumbCanvas.height = 0;
-          thumbImg.src = '';
-          const img = document.createElement('img');
-          img.src = thumbSrc;
-          img.alt = SLOTS[idx];
-          img.style.cssText = 'width:100%;height:100%;object-fit:cover;position:absolute;inset:0;';
-          slot.appendChild(img);
-          const nameBar = document.createElement('div');
-          nameBar.className = 'photo-overlay';
-          nameBar.textContent = filename;
-          slot.appendChild(nameBar);
-          slot.style.cursor = 'pointer';
-          slot.onclick = () => openPhotoSheet('filled', 'photo', idx, SLOTS[idx]);
-        };
-        thumbImg.src = 'data:image/jpeg;base64,' + stored.base64;
-      })(i, expectedFilename);
-    }
+    // 일반 사진 12장 병렬 복원
+    Promise.all(SLOTS.map(async (slotName, idx) => {
+      const expectedFilename = pn + '(' + slotName + ').jpg';
+      if (!rec.photoList.find(p => p.filename === expectedFilename)) return;
+      // ★ 썸네일 키 우선, 없으면 원본 키 fallback
+      let stored = await idbGet(idbThumbKey(pn, idx));
+      if (!stored || !stored.base64) stored = await idbGet('photo_' + idx);
+      if (!stored || !stored.base64) return;
+      photoData[idx] = { filename: expectedFilename };
+      const slot = document.getElementById('photo-slot-' + idx);
+      if (!slot) return;
+      const isPortrait = ['전토심','토양단면'].includes(slotName);
+      slot.className = 'photo-slot ' + (isPortrait ? 'portrait-slot' : 'landscape-slot');
+      slot.classList.remove('photo-required-error');
+      slot.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = 'data:image/jpeg;base64,' + stored.base64;
+      img.alt = slotName;
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover;position:absolute;inset:0;';
+      slot.appendChild(img);
+      const nameBar = document.createElement('div');
+      nameBar.className = 'photo-overlay';
+      nameBar.textContent = expectedFilename;
+      slot.appendChild(nameBar);
+      slot.style.cursor = 'pointer';
+      slot.onclick = () => openPhotoSheet('filled', 'photo', idx, slotName);
+    }));
 
-    // 이동사진 4장 복원
-    for (let i = 0; i < MOVE_SLOTS.length; i++) {
-      const expectedFilename = (rec.plotNo || '') + '(' + MOVE_SLOTS[i] + ').jpg';
-      const photoEntry = rec.photoList.find(p => p.filename === expectedFilename);
-      if (!photoEntry) continue;
-      (async (idx, filename) => {
-        const stored = await idbGet('move_photo_' + idx);
-        if (!stored || !stored.base64) return;
-        movePhotoData[idx] = { filename };
-        const slot = document.getElementById('photo-move-slot-' + idx);
-        if (!slot) return;
-        slot.className = 'photo-slot landscape-slot';
-        slot.classList.remove('photo-required-error');
-        slot.innerHTML = '';
-        const thumbCanvas = document.createElement('canvas');
-        thumbCanvas.width = 200; thumbCanvas.height = 150;
-        const thumbImg = new Image();
-        thumbImg.onload = () => {
-          thumbCanvas.getContext('2d').drawImage(thumbImg, 0, 0, 200, 150);
-          const thumbSrc = thumbCanvas.toDataURL('image/jpeg', 0.2);
-          thumbCanvas.width = 0; thumbCanvas.height = 0;
-          thumbImg.src = '';
-          const img = document.createElement('img');
-          img.src = thumbSrc;
-          img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
-          slot.appendChild(img);
-          slot.style.cursor = 'pointer';
-          slot.onclick = () => openPhotoSheet('filled', 'move', idx, MOVE_SLOTS[idx]);
-        };
-        thumbImg.src = 'data:image/jpeg;base64,' + stored.base64;
-      })(i, expectedFilename);
-    }
+    // 이동사진 4장 병렬 복원
+    Promise.all(MOVE_SLOTS.map(async (slotName, idx) => {
+      const expectedFilename = pn + '(' + slotName + ').jpg';
+      if (!rec.photoList.find(p => p.filename === expectedFilename)) return;
+      let stored = await idbGet(idbMoveThumbKey(pn, idx));
+      if (!stored || !stored.base64) stored = await idbGet('move_photo_' + idx);
+      if (!stored || !stored.base64) return;
+      movePhotoData[idx] = { filename: expectedFilename };
+      const slot = document.getElementById('photo-move-slot-' + idx);
+      if (!slot) return;
+      slot.className = 'photo-slot landscape-slot';
+      slot.classList.remove('photo-required-error');
+      slot.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = 'data:image/jpeg;base64,' + stored.base64;
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover;position:absolute;inset:0;';
+      slot.appendChild(img);
+      const nameBar = document.createElement('div');
+      nameBar.className = 'photo-overlay';
+      nameBar.textContent = expectedFilename;
+      slot.appendChild(nameBar);
+      slot.style.cursor = 'pointer';
+      slot.onclick = () => openPhotoSheet('filled', 'move', idx, slotName);
+    }));
   }
 }
 
@@ -4318,8 +4681,11 @@ function saveSettings() {
 
 // ====== 설정 불러오기 ======
 function loadSettings() {
-  const url    = localStorage.getItem('script_url') || 'https://script.google.com/macros/s/AKfycbzpx33WGdJr52Z1d9c_n5zgtN6L76FyJ4MoueM8wl2fxANVtL5wVgM4VSgWHOOq1dGz/exec';
-  const folder = localStorage.getItem('drive_folder') || '1p4YEtBtK0MqNYNzHFUTCw24I4pMH_FmA';
+  // ★ 앱 시작 시 항상 마스터값으로 강제 덮어쓰기 (관리자가 HTML 수정 후 배포하면 전체 적용)
+  localStorage.setItem('script_url',   MASTER_SCRIPT_URL);
+  localStorage.setItem('drive_folder', MASTER_DRIVE_FOLDER);
+  const url    = MASTER_SCRIPT_URL;
+  const folder = MASTER_DRIVE_FOLDER;
   const team   = localStorage.getItem('team_code');
   document.getElementById('setting-script-url').value   = url;
   document.getElementById('setting-drive-folder').value = folder;
@@ -4455,7 +4821,7 @@ function _doReset() {
     const detailEl = document.getElementById('soil-color-' + ab);
     if (detailEl) { detailEl.innerHTML = '<option value="">계열 먼저 선택</option>'; detailEl.disabled = true; }
   });
-  idbClear().catch(console.error);
+  // idbClear는 loadRecord에서만 선택적으로 호출 (일반 리셋 시 IDB 유지)
   clearDraft();
   photoData = {};
   movePhotoData = {};
@@ -4676,7 +5042,7 @@ function renderRecordsList() {
 
 // ====== 타입별 재업로드 ======
 async function reUploadSingle(id, type) {
-  const scriptUrl = localStorage.getItem('script_url') || 'https://script.google.com/macros/s/AKfycbzpx33WGdJr52Z1d9c_n5zgtN6L76FyJ4MoueM8wl2fxANVtL5wVgM4VSgWHOOq1dGz/exec';
+  const scriptUrl = localStorage.getItem('script_url') || MASTER_SCRIPT_URL;
   if (!scriptUrl) { showToast('Apps Script URL을 설정탭에서 입력해주세요', 'error'); return; }
   if (!navigator.onLine) { showToast('📵 인터넷 연결 후 다시 시도해주세요', 'error'); return; }
 
@@ -4708,7 +5074,7 @@ async function reUploadSingle(id, type) {
 
     // ── 사진 ──
     if (type === 'photo' || type === 'all') {
-      const folderId = localStorage.getItem('drive_folder') || '1p4YEtBtK0MqNYNzHFUTCw24I4pMH_FmA';
+      const folderId = localStorage.getItem('drive_folder') || MASTER_DRIVE_FOLDER;
       const teamCode = localStorage.getItem('team_code') || '';
       const weekCode = (window._plotMap && window._plotMap[r.plotNo] && window._plotMap[r.plotNo].week) || '주차미정';
       const uploaded = new Set();
@@ -4807,7 +5173,7 @@ async function reUploadRecord(id) { reUploadSingle(id, 'all'); }
 
 // ====== 재업로드 (구버전) ======
 async function reUploadRecord(id) {
-  const scriptUrl = localStorage.getItem('script_url') || 'https://script.google.com/macros/s/AKfycbzpx33WGdJr52Z1d9c_n5zgtN6L76FyJ4MoueM8wl2fxANVtL5wVgM4VSgWHOOq1dGz/exec';
+  const scriptUrl = localStorage.getItem('script_url') || MASTER_SCRIPT_URL;
   if (!scriptUrl) { showToast('Apps Script URL을 설정탭에서 입력해주세요', 'error'); return; }
   if (!navigator.onLine) { showToast('인터넷 연결 후 다시 시도해주세요', 'error'); return; }
 
@@ -4845,7 +5211,7 @@ async function reUploadRecord(id) {
     const myPhotos = queue.filter(p => p.type === 'photo' && p.plotNo === r.plotNo);
     const uploadedNames = new Set();
     for (const p of myPhotos) {
-      await sendToScript(scriptUrl, { ...p, folderId: localStorage.getItem('drive_folder') || '1p4YEtBtK0MqNYNzHFUTCw24I4pMH_FmA' });
+      await sendToScript(scriptUrl, { ...p, folderId: localStorage.getItem('drive_folder') || MASTER_DRIVE_FOLDER });
       uploadedNames.add(p.filename);
     }
     // 대기열에서 완료된 사진 제거
