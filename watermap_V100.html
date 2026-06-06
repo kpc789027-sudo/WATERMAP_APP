@@ -205,6 +205,187 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans KR', 'Malgun G
 .progress-bar-wrap { height: 6px; background: #FAC775; border-radius: 3px; margin-top: 8px; overflow: hidden; }
 .progress-bar { height: 100%; background: var(--warning); border-radius: 3px; width: 0; transition: width 0.3s; }
 
+/* ====== 다크모드 ====== */
+body.dark-mode {
+  --white: #1E1E1E;
+  --green-light: #1a3328;
+  --green-mid: #2d5c3f;
+  --green-dark: #4CAF50;
+  --gray-bg: #2A2A2A;
+  --gray-border: #3A3A3A;
+  --gray-text: #AAAAAA;
+  --text: #E8E8E8;
+  --text-sub: #AAAAAA;
+  --danger: #FF6B6B;
+  background: #121212 !important;
+  color: #E8E8E8;
+}
+body.dark-mode .card { background: #1E1E1E; border-color: #333; }
+body.dark-mode .card-header { background: #252525; border-color: #333; }
+body.dark-mode input, body.dark-mode select, body.dark-mode textarea {
+  background: #2A2A2A !important;
+  color: #E8E8E8 !important;
+  border-color: #4CAF50 !important;
+}
+body.dark-mode input::placeholder { color: #666 !important; }
+body.dark-mode .nav { background: #1A1A1A; border-color: #333; }
+body.dark-mode .nav-btn { color: #888; background: #1A1A1A; }
+body.dark-mode .nav-btn.active { color: #4CAF50; background: #1a3328; }
+body.dark-mode .field { background: #1E1E1E; border-color: #333; }
+body.dark-mode .btn-group button {
+  background: #2A2A2A !important;
+  color: #AAAAAA !important;
+  border-color: #444 !important;
+}
+body.dark-mode .btn-group button.active {
+  background: #0A5C45 !important;
+  color: #A5D6A7 !important;
+  border-color: #4CAF50 !important;
+}
+body.dark-mode .photo-slot { background: #2A2A2A; }
+body.dark-mode .photo-slot.landscape-slot { background: #1a2e20; outline-color: #4CAF50; }
+body.dark-mode .photo-slot.portrait-slot { background: #2e2a1a; outline-color: #F5A623; }
+body.dark-mode .tab-panel { background: #121212; }
+body.dark-mode .save-bar { background: #1A1A1A !important; border-color: #333; }
+body.dark-mode .btn-reset { background: #2A2A2A; color: #AAAAAA; border-color: #444; }
+body.dark-mode .record-card { background: #1E1E1E; border-color: #333; }
+body.dark-mode .setting-label { color: #E8E8E8; }
+body.dark-mode .setting-sub { color: #888; }
+body.dark-mode .google-setup { background: #1a3328; border-color: #2d5c3f; }
+body.dark-mode .field-error { background: #2e1a1a !important; outline-color: #FF6B6B !important; }
+
+/* 헤더(topbar) - 다크모드에서도 녹색 그대로 유지 */
+body.dark-mode .topbar { background: #0A5C45 !important; }
+body.dark-mode .topbar h1 { color: white !important; }
+body.dark-mode .topbar button { color: white !important; }
+
+/* 드롭다운 - 다크모드에서 강조 */
+body.dark-mode select {
+  background: #2A2A2A !important;
+  color: #FFFFFF !important;
+  border: 2px solid #666 !important;
+  font-weight: 600 !important;
+}
+
+/* 라디오/체크박스 라벨 - 다크모드에서 강조 */
+body.dark-mode .radio-group label,
+body.dark-mode .check-group label,
+body.dark-mode input[type="radio"] + label,
+body.dark-mode input[type="checkbox"] + label {
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+}
+
+/* 선택된 버튼 그룹 강조 */
+body.dark-mode .btn-group button.active {
+  background: #0A5C45 !important;
+  color: #FFFFFF !important;
+  border: 2px solid #FFFFFF !important;
+  font-weight: 700 !important;
+}
+body.dark-mode .btn-group button:not(.active) {
+  background: #2A2A2A !important;
+  color: #999 !important;
+  border-color: #555 !important;
+}
+
+/* 모든 입력란 - 흰색 텍스트 */
+body.dark-mode input[type="text"],
+body.dark-mode input[type="number"],
+body.dark-mode input[type="date"],
+body.dark-mode textarea {
+  background: #2A2A2A !important;
+  color: #FFFFFF !important;
+  border: 1.5px solid #666 !important;
+  font-weight: 500 !important;
+}
+body.dark-mode input::placeholder,
+body.dark-mode textarea::placeholder {
+  color: #777 !important;
+}
+
+/* 임목조사 테이블 행 구분 */
+body.dark-mode .tree-table tr:nth-child(odd) td {
+  background: #252525 !important;
+}
+body.dark-mode .tree-table tr:nth-child(even) td {
+  background: #1E1E1E !important;
+}
+body.dark-mode .tree-table th {
+  background: #0A5C45 !important;
+  color: #FFFFFF !important;
+}
+body.dark-mode .tree-table td {
+  color: #FFFFFF !important;
+  border-color: #444 !important;
+}
+
+/* 소제목 라벨 - 녹색 */
+body.dark-mode .field-label,
+body.dark-mode label,
+body.dark-mode .field > label,
+body.dark-mode .field-group > label,
+body.dark-mode .label-text {
+  color: #4CAF50 !important;
+  font-weight: 700 !important;
+}
+
+/* 카드 헤더 텍스트 - 흰색 */
+body.dark-mode .card-header h2 { color: #FFFFFF !important; }
+body.dark-mode .card-header .card-header-icon { color: #FFFFFF !important; }
+
+/* 섹션 소제목 (A층토색, B층토심 등) - 녹색 */
+body.dark-mode .section-title,
+body.dark-mode .field-section-title,
+body.dark-mode [style*="font-weight:700"][style*="color:var(--green"] {
+  color: #4CAF50 !important;
+}
+
+/* 설정 라벨 */
+body.dark-mode .setting-label { color: #4CAF50 !important; font-weight: 700 !important; }
+body.dark-mode .setting-sub { color: #AAAAAA !important; }
+
+/* 임목조사 번호 - 녹색 */
+body.dark-mode .tree-table td:first-child,
+body.dark-mode .tree-row-num,
+body.dark-mode #tab-tree table td:first-child {
+  color: #4CAF50 !important;
+  font-weight: 700 !important;
+  background: #1A1A1A !important;
+}
+
+/* 임목조사 헤더 */
+body.dark-mode .tree-table th,
+body.dark-mode #tab-tree table th {
+  background: #0A5C45 !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+}
+
+/* 임목조사 입력칸 - 흰색 */
+body.dark-mode .tree-table input,
+body.dark-mode #tab-tree table input {
+  background: #2A2A2A !important;
+  color: #FFFFFF !important;
+  border: 1px solid #555 !important;
+}
+
+/* 임목조사 행 구분 */
+body.dark-mode .tree-table tr:nth-child(odd) td,
+body.dark-mode #tab-tree table tr:nth-child(odd) td {
+  background: #252525 !important;
+}
+body.dark-mode .tree-table tr:nth-child(even) td,
+body.dark-mode #tab-tree table tr:nth-child(even) td {
+  background: #1E1E1E !important;
+}
+body.dark-mode .tree-table td:first-child,
+body.dark-mode #tab-tree table td:first-child {
+  background: #1A2E22 !important;
+  color: #4CAF50 !important;
+  font-weight: 700 !important;
+}
+
 /* Google 연동 안내 */
 .google-setup { background: var(--green-light); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; border: 1.5px solid var(--green-mid); }
 .google-setup h3 { font-size: 16px; font-weight: 700; color: var(--green-dark); margin-bottom: 8px; }
@@ -833,6 +1014,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans KR', 'Malgun G
     <div class="card-header">
       <span class="card-header-icon">👥</span>
       <h2>조사팀 선택</h2>
+      <button onclick="toggleDarkMode()" id="dark-mode-toggle"
+        style="margin-left:auto;padding:10px 20px;background:var(--gray-bg);color:var(--text);border:1.5px solid var(--gray-border);border-radius:24px;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;">
+        🌙 다크모드
+      </button>
     </div>
     <div class="card-body">
       <div style="background:var(--green-light);border-radius:var(--radius-sm);padding:8px 10px;margin-bottom:12px;font-size:13px;color:var(--green-dark);line-height:1.6;">
@@ -1537,6 +1722,33 @@ async function restoreDraft() {
     return true;
   } catch(e) { console.warn('draft 복원 실패', e); return false; }
 }
+
+// ====== 다크모드 토글 ======
+function toggleDarkMode() {
+  const isDark = document.body.classList.toggle('dark-mode');
+  const btn = document.getElementById('dark-mode-toggle');
+  if (btn) {
+    btn.innerHTML = isDark ? '☀️ 라이트모드' : '🌙 다크모드';
+    btn.style.background = isDark ? '#1a3328' : '';
+    btn.style.color = isDark ? '#A5D6A7' : '';
+    btn.style.borderColor = isDark ? '#4CAF50' : '';
+  }
+  localStorage.setItem('dark_mode', isDark ? '1' : '0');
+}
+
+// 다크모드 초기화 (저장된 설정 복원)
+document.addEventListener('DOMContentLoaded', function() {
+  if (localStorage.getItem('dark_mode') === '1') {
+    document.body.classList.add('dark-mode');
+    const btn = document.getElementById('dark-mode-toggle');
+    if (btn) {
+      btn.innerHTML = '☀️ 라이트모드';
+      btn.style.background = '#1a3328';
+      btn.style.color = '#A5D6A7';
+      btn.style.borderColor = '#4CAF50';
+    }
+  }
+});
 
 // ====== 나침반 ======
 (function() {
