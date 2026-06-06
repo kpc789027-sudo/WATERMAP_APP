@@ -1,37 +1,43 @@
-const CACHE_NAME = 'watermap-v3';
+// 물지도 전자야장 Service Worker
+const CACHE_NAME = 'watermap-v100';
+const ASSETS = [
+  './watermap_V100.html',
+  './manifest.json'
+];
 
-self.addEventListener('install', function(e) {
+// 설치: 핵심 파일 캐시
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
+  );
   self.skipWaiting();
 });
 
-self.addEventListener('activate', function(e) {
-  e.waitUntil(
-    caches.keys().then(function(keys) {
-      return Promise.all(
-        keys.filter(function(k) { return k !== CACHE_NAME; })
-            .map(function(k) { return caches.delete(k); })
-      );
-    }).then(function() { return self.clients.claim(); })
+// 활성화: 구버전 캐시 삭제
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(
+        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+      )
+    )
   );
+  self.clients.claim();
 });
 
-self.addEventListener('fetch', function(e) {
-  if (e.request.method !== 'GET') return;
-  if (e.request.url.includes('script.google.com')) return;
-  if (e.request.url.includes('googleapis.com')) return;
-  if (e.request.url.includes('cdnjs.cloudflare.com')) return;
+// 요청 처리: 네트워크 우선 → 실패 시 캐시
+self.addEventListener('fetch', event => {
+  if (!event.request.url.startsWith(self.location.origin)) return;
 
-  e.respondWith(
-    caches.open(CACHE_NAME).then(function(cache) {
-      return cache.match(e.request).then(function(cached) {
-        var fetchPromise = fetch(e.request).then(function(response) {
-          if (response && response.status === 200 && response.type === 'basic') {
-            cache.put(e.request, response.clone());
-          }
-          return response;
-        }).catch(function() { return cached; });
-        return cached || fetchPromise;
-      });
-    })
+  event.respondWith(
+    fetch(event.request)
+      .then(response => {
+        if (response && response.status === 200) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        }
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
