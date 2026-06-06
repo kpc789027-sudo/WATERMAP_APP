@@ -733,6 +733,62 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans KR', 'Malgun G
       </div>
     </div>
   </div>
+
+  <!-- 나침반 -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-header-icon">🧭</span>
+      <h2>나침반</h2>
+      <span id="compass-deg" style="margin-left:auto;font-size:14px;font-weight:700;color:var(--green-dark);background:var(--green-light);padding:3px 10px;border-radius:20px;">-- °</span>
+    </div>
+    <div style="padding:10px 14px 14px;">
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div style="position:relative;width:120px;height:120px;flex-shrink:0;">
+          <svg width="120" height="120" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="56" fill="none" stroke="var(--gray-border)" stroke-width="1.5"/>
+            <circle cx="60" cy="60" r="42" fill="none" stroke="var(--gray-border)" stroke-width="0.5" stroke-dasharray="2,4"/>
+            <text x="60" y="12" text-anchor="middle" font-size="13" font-weight="700" fill="#E24B4A">N</text>
+            <text x="60" y="114" text-anchor="middle" font-size="13" font-weight="700" fill="var(--text-sub)">S</text>
+            <text x="112" y="64" text-anchor="middle" font-size="13" font-weight="700" fill="var(--text-sub)">E</text>
+            <text x="8" y="64" text-anchor="middle" font-size="13" font-weight="700" fill="var(--text-sub)">W</text>
+            <text x="87" y="36" text-anchor="middle" font-size="9" fill="var(--text-sub)">NE</text>
+            <text x="87" y="90" text-anchor="middle" font-size="9" fill="var(--text-sub)">SE</text>
+            <text x="33" y="90" text-anchor="middle" font-size="9" fill="var(--text-sub)">SW</text>
+            <text x="33" y="36" text-anchor="middle" font-size="9" fill="var(--text-sub)">NW</text>
+            <g id="compass-needle" style="transform-origin:60px 60px;transform:rotate(0deg);transition:transform 0.2s ease;">
+              <polygon points="60,10 55,60 65,60" fill="#E24B4A"/>
+              <polygon points="60,110 55,60 65,60" fill="var(--text-sub)" opacity="0.5"/>
+            </g>
+            <circle cx="60" cy="60" r="5" fill="var(--white)" stroke="var(--gray-border)" stroke-width="1.5"/>
+            <circle cx="60" cy="60" r="2.5" fill="var(--text)"/>
+          </svg>
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:36px;font-weight:700;color:var(--text);line-height:1;" id="compass-dir-text">--</div>
+          <div style="font-size:13px;color:var(--text-sub);margin-top:4px;" id="compass-dir-sub">센서 초기화 중...</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px;">
+            <div style="background:var(--gray-bg);border-radius:var(--radius-sm);padding:6px 8px;text-align:center;">
+              <div style="font-size:10px;color:var(--text-sub);">북(N) 0°</div>
+              <div style="font-size:11px;font-weight:700;color:#E24B4A;">↑ 정북</div>
+            </div>
+            <div style="background:var(--gray-bg);border-radius:var(--radius-sm);padding:6px 8px;text-align:center;">
+              <div style="font-size:10px;color:var(--text-sub);">동(E) 90°</div>
+              <div style="font-size:11px;font-weight:700;color:var(--text);">→ 동쪽</div>
+            </div>
+            <div style="background:var(--gray-bg);border-radius:var(--radius-sm);padding:6px 8px;text-align:center;">
+              <div style="font-size:10px;color:var(--text-sub);">남(S) 180°</div>
+              <div style="font-size:11px;font-weight:700;color:var(--text);">↓ 남쪽</div>
+            </div>
+            <div style="background:var(--gray-bg);border-radius:var(--radius-sm);padding:6px 8px;text-align:center;">
+              <div style="font-size:10px;color:var(--text-sub);">서(W) 270°</div>
+              <div style="font-size:11px;font-weight:700;color:var(--text);">← 서쪽</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div><!-- /tab-photo -->
 
 <!-- ================= 탭4: 저장목록 ================= -->
@@ -813,60 +869,79 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans KR', 'Malgun G
   </div>
 
   <!-- 팀 관리 카드 -->
-    
-<div class="google-setup">
-    <h3>Google Sheets 연동 설정</h3>
-    <p>아래 Apps Script 웹앱 URL을 입력하면 현장에서 저장 즉시 Google Sheets에 자동으로 기록됩니다.<br>
-    Google Sheets → 확장 프로그램 → <code>Apps Script</code> → 배포 → 웹앱 URL을 복사해 아래에 입력하세요.</p>
+
+  <!-- Google 연동 설정 - 숨김 (값은 HTML 기본값으로 자동 적용) -->
+  <div style="display:none;">
+    <input type="text" id="setting-script-url">
+    <input type="text" id="setting-drive-folder">
+    <div id="settings-saved-msg"></div>
   </div>
 
-<div class="card">
-    <div class="card-header">
-      <span class="card-header-icon">⚙️</span>
-      <h2>Google 연동</h2>
+  <!-- 관리자 전용 섹션 -->
+  <div style="margin-bottom:14px;">
+    <!-- 잠금 상태 -->
+    <div id="admin-lock-box" style="background:var(--gray-bg);border:0.5px solid var(--gray-border);border-radius:var(--radius-sm);padding:10px;display:flex;align-items:center;gap:8px;justify-content:center;">
+      <span style="font-size:12px;color:var(--text-sub);">🔒 관리자</span>
+      <input type="password" id="admin-pw-input" placeholder="비밀번호" maxlength="10"
+        style="width:100px;padding:5px 8px;border:0.5px solid var(--gray-border);border-radius:var(--radius-sm);font-size:13px;text-align:center;"
+        onkeydown="if(event.key==='Enter') checkAdminPw()">
+      <button onclick="checkAdminPw()"
+        style="padding:5px 12px;background:var(--green);color:white;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:700;cursor:pointer;">
+        확인
+      </button>
+      <span id="admin-pw-error" style="display:none;font-size:12px;color:var(--danger);">틀렸습니다</span>
     </div>
-    <div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Apps Script URL</div>
-          <div class="setting-sub">Google Sheets 웹앱 주소</div>
-        </div>
-      </div>
-      <div style="padding:0 14px 14px;">
-        <input type="text" id="setting-script-url" placeholder="https://script.google.com/macros/s/..." style="width:100%;padding:9px 11px;border:0.5px solid var(--gray-border);border-radius:var(--radius-sm);font-size:13px;">
-      </div>
-      <div class="setting-row">
-        <div>
-          <div class="setting-label">Google Drive 폴더 ID</div>
-          <div class="setting-sub">사진 저장용 Drive 폴더</div>
-        </div>
-      </div>
-      <div style="padding:0 14px 14px;">
-        <input type="text" id="setting-drive-folder" placeholder="예) 1p4YEtBtK0MqNYNzHFUTCw24I4pMH_FmA  (/folders/ 뒤 ID만 입력)" style="width:100%;padding:9px 11px;border:0.5px solid var(--gray-border);border-radius:var(--radius-sm);font-size:13px;">
-      </div>
-      <div style="padding:0 14px 16px;">
-        <button onclick="saveSettings()" id="save-settings-btn"
-          style="width:100%;padding:14px;background:var(--green);color:white;border:none;border-radius:var(--radius-sm);font-size:17px;font-weight:700;cursor:pointer;letter-spacing:0.3px;">
-          💾 설정 저장
-        </button>
-        <div id="settings-saved-msg" style="display:none;margin-top:8px;padding:9px 12px;background:var(--green-light);border-radius:var(--radius-sm);font-size:14px;font-weight:700;color:var(--green-dark);text-align:center;">
-          ✓ 설정이 저장되었습니다
-        </div>
-      </div>
-    </div>
-  </div>
 
-  <!-- Apps Script 코드 (관리자용) -->
-  <div style="margin-bottom:16px;">
-    <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;">
-      <button onclick="toggleAppsScript()" style="padding:5px 12px;background:var(--gray-bg);color:var(--gray-text);border:1px solid var(--gray-border);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;">
-        📄 관리자 Script 코드 <span id="apps-script-toggle-icon">▼</span>
-      </button>
-      <button onclick="copyAppsScript()" id="copy-script-btn"
-        style="padding:5px 12px;background:var(--gray-bg);color:var(--gray-text);border:1px solid var(--gray-border);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;">
-        📋 복사
-      </button>
-    </div>
+    <!-- 관리자 콘텐츠 (비밀번호 후 표시) -->
+    <div id="admin-content" style="display:none;margin-top:10px;">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+        <button onclick="lockAdmin()" style="padding:4px 10px;background:var(--gray-bg);color:var(--text-sub);border:1px solid var(--gray-border);border-radius:20px;font-size:12px;cursor:pointer;">🔒 잠금</button>
+      </div>
+
+      <!-- Google 연동 설정 -->
+      <div class="card" style="margin-bottom:12px;">
+        <div class="card-header">
+          <span class="card-header-icon">⚙️</span>
+          <h2>Google 연동</h2>
+        </div>
+        <div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Apps Script URL</div>
+              <div class="setting-sub">Google Sheets 웹앱 주소</div>
+            </div>
+          </div>
+          <div style="padding:0 14px 14px;">
+            <input type="text" id="setting-script-url-admin" placeholder="https://script.google.com/macros/s/..." style="width:100%;padding:9px 11px;border:0.5px solid var(--gray-border);border-radius:var(--radius-sm);font-size:13px;">
+          </div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Google Drive 폴더 ID</div>
+              <div class="setting-sub">사진 저장용 Drive 폴더</div>
+            </div>
+          </div>
+          <div style="padding:0 14px 14px;">
+            <input type="text" id="setting-drive-folder-admin" placeholder="예) 1p4YEtBtK0MqNYNzHFUTCw24I4pMH_FmA" style="width:100%;padding:9px 11px;border:0.5px solid var(--gray-border);border-radius:var(--radius-sm);font-size:13px;">
+          </div>
+          <div style="padding:0 14px 16px;">
+            <button onclick="saveSettingsAdmin()" style="width:100%;padding:14px;background:var(--green);color:white;border:none;border-radius:var(--radius-sm);font-size:17px;font-weight:700;cursor:pointer;">
+              💾 설정 저장
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Apps Script 코드 -->
+      <div style="margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;">
+          <button onclick="toggleAppsScript()" style="padding:5px 12px;background:var(--gray-bg);color:var(--gray-text);border:1px solid var(--gray-border);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;">
+            📄 관리자 Script 코드 <span id="apps-script-toggle-icon">▼</span>
+          </button>
+          <button onclick="copyAppsScript()" id="copy-script-btn"
+            style="padding:5px 12px;background:var(--gray-bg);color:var(--gray-text);border:1px solid var(--gray-border);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;">
+            📋 복사
+          </button>
+        </div>
     <div id="apps-script-body" style="display:none;margin-top:8px;border:1px solid var(--gray-border);border-radius:var(--radius-sm);overflow:hidden;">
       <div class="card-body" style="padding:12px;">
       <div style="background:var(--green-light);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:10px;font-size:12px;color:var(--green-dark);line-height:1.7;">
@@ -1257,6 +1332,10 @@ function json(obj) {
     </div>
   </div>
 
+      </div><!-- /apps-script section -->
+    </div><!-- /admin-content -->
+  </div><!-- /admin 섹션 -->
+
 </div><!-- /tab-setting -->
 
 <!-- 이미지 전체화면 뷰어 -->
@@ -1458,6 +1537,81 @@ async function restoreDraft() {
     return true;
   } catch(e) { console.warn('draft 복원 실패', e); return false; }
 }
+
+// ====== 나침반 ======
+(function() {
+  var _lastDeg = null;
+
+  function updateCompass(deg) {
+    if (deg === null || deg === undefined || isNaN(deg)) return;
+    deg = Math.round(((deg % 360) + 360) % 360);
+    _lastDeg = deg;
+    var needle  = document.getElementById('compass-needle');
+    var degEl   = document.getElementById('compass-deg');
+    var dirText = document.getElementById('compass-dir-text');
+    var dirSub  = document.getElementById('compass-dir-sub');
+    if (!needle) return;
+    needle.style.transform = 'rotate(' + deg + 'deg)';
+    var dirs   = ['N','NE','E','SE','S','SW','W','NW'];
+    var dirsKo = ['북','북동','동','남동','남','남서','서','북서'];
+    var idx = Math.round(deg / 45) % 8;
+    if (degEl)   degEl.textContent   = dirs[idx] + ' ' + deg + '°';
+    if (dirText) dirText.textContent = dirs[idx];
+    if (dirSub)  dirSub.textContent  = dirsKo[idx] + ' ' + deg + '°';
+  }
+
+  function onEvent(e) {
+    // iOS: webkitCompassHeading 우선
+    if (e.webkitCompassHeading != null && !isNaN(e.webkitCompassHeading)) {
+      updateCompass(e.webkitCompassHeading);
+      return;
+    }
+    // Android: alpha 값 사용
+    if (e.alpha != null && !isNaN(e.alpha)) {
+      updateCompass(360 - e.alpha);
+    }
+  }
+
+  function startListening() {
+    window.addEventListener('deviceorientationabsolute', onEvent, true);
+    window.addEventListener('deviceorientation', onEvent, true);
+    var sub = document.getElementById('compass-dir-sub');
+    if (sub) sub.textContent = '방향을 감지하는 중...';
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    var sub = document.getElementById('compass-dir-sub');
+
+    if (typeof DeviceOrientationEvent === 'undefined') {
+      if (sub) sub.textContent = '이 기기는 나침반을 지원하지 않습니다';
+      return;
+    }
+
+    // iOS 13+
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+      if (sub) sub.textContent = '화면을 탭하면 나침반이 시작됩니다 (iOS)';
+      function iosTap() {
+        DeviceOrientationEvent.requestPermission()
+          .then(function(result) {
+            if (result === 'granted') {
+              startListening();
+            } else {
+              var s = document.getElementById('compass-dir-sub');
+              if (s) s.textContent = '권한 거부 — 설정>Safari>동작 및 방향 허용';
+            }
+          }).catch(function(err) {
+            var s = document.getElementById('compass-dir-sub');
+            if (s) s.textContent = '오류: ' + err.message;
+          });
+        document.removeEventListener('touchend', iosTap);
+      }
+      document.addEventListener('touchend', iosTap);
+    } else {
+      // Android / 기타 — 즉시 시작
+      startListening();
+    }
+  });
+})();
 
 // ====== 사진 ZIP 다운로드 ======
 async function downloadPhotosAsZip(plotNo) {
@@ -4539,6 +4693,47 @@ function toggleCsvPanel() {
     panel.style.display = 'none';
     icon.textContent = '▼ 펼치기';
   }
+}
+
+// ====== 관리자 비밀번호 ======
+const ADMIN_PW = '3864';
+function checkAdminPw() {
+  const input = document.getElementById('admin-pw-input');
+  const error = document.getElementById('admin-pw-error');
+  if (input.value === ADMIN_PW) {
+    document.getElementById('admin-lock-box').style.display = 'none';
+    document.getElementById('admin-content').style.display = 'block';
+    error.style.display = 'none';
+    input.value = '';
+    // 관리자 설정값 로드
+    const url = localStorage.getItem('script_url') || '';
+    const folder = localStorage.getItem('drive_folder') || '';
+    const adminUrl = document.getElementById('setting-script-url-admin');
+    const adminFolder = document.getElementById('setting-drive-folder-admin');
+    if (adminUrl) adminUrl.value = url;
+    if (adminFolder) adminFolder.value = folder;
+  } else {
+    error.style.display = 'inline';
+    input.value = '';
+    input.focus();
+  }
+}
+function lockAdmin() {
+  document.getElementById('admin-lock-box').style.display = 'flex';
+  document.getElementById('admin-content').style.display = 'none';
+  document.getElementById('admin-pw-error').style.display = 'none';
+}
+function saveSettingsAdmin() {
+  const url = document.getElementById('setting-script-url-admin')?.value.trim() || '';
+  const folder = document.getElementById('setting-drive-folder-admin')?.value.trim() || '';
+  // 숨겨진 원본 input에도 반영
+  const hiddenUrl = document.getElementById('setting-script-url');
+  const hiddenFolder = document.getElementById('setting-drive-folder');
+  if (hiddenUrl) hiddenUrl.value = url;
+  if (hiddenFolder) hiddenFolder.value = folder;
+  if (url) localStorage.setItem('script_url', url);
+  if (folder) localStorage.setItem('drive_folder', folder);
+  showToast('✓ 설정이 저장되었습니다', 'success');
 }
 
 // ====== Apps Script 코드 접기/펼치기 ======
