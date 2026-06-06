@@ -1560,16 +1560,32 @@ async function restoreDraft() {
     if (dirSub)  dirSub.textContent  = dirsKo[idx] + ' ' + deg + '°';
   }
 
+  // 스무딩: 최근 10개 값 평균으로 흔들림 방지
+  var _samples = [];
+  var SAMPLE_SIZE = 10;
+
+  function smoothDeg(newDeg) {
+    _samples.push(newDeg);
+    if (_samples.length > SAMPLE_SIZE) _samples.shift();
+    // 각도 평균 (0/360 경계 처리)
+    var sinSum = 0, cosSum = 0;
+    for (var i = 0; i < _samples.length; i++) {
+      var rad = _samples[i] * Math.PI / 180;
+      sinSum += Math.sin(rad);
+      cosSum += Math.cos(rad);
+    }
+    var avg = Math.atan2(sinSum / _samples.length, cosSum / _samples.length) * 180 / Math.PI;
+    return (avg + 360) % 360;
+  }
+
   function onEvent(e) {
-    // iOS: webkitCompassHeading 우선
+    var raw = null;
     if (e.webkitCompassHeading != null && !isNaN(e.webkitCompassHeading)) {
-      updateCompass(e.webkitCompassHeading);
-      return;
+      raw = e.webkitCompassHeading; // iOS
+    } else if (e.alpha != null && !isNaN(e.alpha)) {
+      raw = 360 - e.alpha; // Android
     }
-    // Android: alpha 값 사용
-    if (e.alpha != null && !isNaN(e.alpha)) {
-      updateCompass(360 - e.alpha);
-    }
+    if (raw !== null) updateCompass(smoothDeg(raw));
   }
 
   function startListening() {
