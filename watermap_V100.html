@@ -229,8 +229,8 @@ body.dark-mode input, body.dark-mode select, body.dark-mode textarea {
 }
 body.dark-mode input::placeholder { color: #666 !important; }
 body.dark-mode .nav { background: #1A1A1A; border-color: #333; }
-body.dark-mode .nav-btn { color: #888; background: #1A1A1A; }
-body.dark-mode .nav-btn.active { color: #4CAF50; background: #1a3328; }
+body.dark-mode .nav-btn { color: #ffffff; font-weight: 700; background: #1A1A1A; }
+body.dark-mode .nav-btn.active { color: #4CAF50; font-weight: 700; background: #1a3328; }
 body.dark-mode .field { background: #1E1E1E; border-color: #333; }
 body.dark-mode .btn-group button {
   background: #2A2A2A !important;
@@ -473,12 +473,12 @@ body.dark-mode #tab-tree table td:first-child {
         </div>
       </div>
       <div class="row2">
-        <div class="field">
-          <label>유역명 <span class="req">*</span></label>
+        <div class="field" style="margin-bottom:0;">
+          <label style="font-size:15px;font-weight:700;display:block;margin-bottom:6px;line-height:1.2;">유역명 <span style="color:var(--danger);font-size:15px;">*</span></label>
           <input type="text" id="soil-basin" placeholder="유역명 입력" oninput="syncToTree()" onkeydown="nextFieldOnEnter(event,'soil-basin-code')">
         </div>
-        <div class="field">
-          <label>유역코드</label>
+        <div class="field" style="margin-bottom:0;">
+          <label style="font-size:15px;font-weight:700;display:block;margin-bottom:6px;line-height:1.2;">유역코드</label>
           <input type="text" id="soil-basin-code" placeholder="코드 입력" oninput="syncToTree()" onkeydown="nextFieldOnEnter(event,'soil-plot-no')">
         </div>
       </div>
@@ -665,7 +665,7 @@ body.dark-mode #tab-tree table td:first-child {
             </select>
           </div>
           <div class="field" style="margin-bottom:0;">
-            <select id="soil-color-a" onchange="focusNext('soil-color-b-hue')" disabled>
+            <select id="soil-color-a" onchange="focusNext('soil-color-b')" disabled>
               <option value="">계열 먼저 선택</option>
             </select>
           </div>
@@ -776,7 +776,7 @@ body.dark-mode #tab-tree table td:first-child {
         </div>
         <div class="field">
           <label>100cc (30cm)</label>
-          <select id="soil-100cc-30" onchange="syncSampleField('soil-100cc-30','soil-chem-30'); focusNext('soil-chem-10')">
+          <select id="soil-100cc-30" onchange="syncSampleField('soil-100cc-30','soil-chem-30'); focusNext('soil-note')">
             <option value="">선택</option>
             <option>O</option><option>X</option>
           </select>
@@ -1456,6 +1456,20 @@ function doGet(e) {
       data.slice(1).map(r => (r[6] || '').toString().trim()).filter(Boolean)
     )];
     return json({ teams });
+  }
+
+  // 현장조사(입지 및 토양) 시트에서 완료된 조사지번호만 빠르게 반환
+  if (action === 'getCompletedPlots') {
+    const soilSh = ss.getSheetByName(SOIL_SHEET);
+    const completed = [];
+    if (soilSh && soilSh.getLastRow() > 1) {
+      const rows = soilSh.getDataRange().getValues();
+      rows.slice(1).forEach(r => {
+        const pn = (r[2] || '').toString().trim();
+        if (pn) completed.push(pn);
+      });
+    }
+    return json({ completed });
   }
 
   if (action === 'getPlots') {
@@ -2216,6 +2230,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (restored) showToast('이전 작업 내용이 복원되었습니다', 'info');
     // 복원 후 미완료 업로드 자동 처리
     setTimeout(() => autoRetryUpload(), 2000);
+    // 앱 시작 시 완료 목록 자동 갱신
+    setTimeout(() => syncCompletedPlots(), 3000);
   });
   updateOnlineStatus();
   updateSyncBadge();
@@ -2533,8 +2549,54 @@ function updateOnlineStatus() {
     banner.classList.add('show');
   }
 }
-window.addEventListener('online',  updateOnlineStatus);
+window.addEventListener('online', () => {
+  updateOnlineStatus();
+  // 인터넷 연결 시 완료 목록 자동 갱신
+  setTimeout(() => syncCompletedPlots(), 1500);
+});
 window.addEventListener('offline', updateOnlineStatus);
+
+// 포그라운드 복귀 시 완료 목록 자동 갱신
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && navigator.onLine) {
+    syncCompletedPlots();
+  }
+});
+
+// ====== 완료 목록 자동 갱신 ======
+async function syncCompletedPlots() {
+  const scriptUrl = localStorage.getItem('script_url') || MASTER_SCRIPT_URL;
+  const teamCode  = localStorage.getItem('loaded_team') || '';
+  const saved     = localStorage.getItem('loaded_plots');
+  if (!scriptUrl || !teamCode || !saved) return;
+
+  try {
+    const res  = await fetch(scriptUrl + '?action=getCompletedPlots');
+    const data = await res.json();
+    if (!data.completed) return;
+
+    const completedSet = new Set(data.completed.map(p => p.toString().trim()));
+    const plots = JSON.parse(saved);
+    let changed = false;
+
+    plots.forEach(p => {
+      if (typeof p !== 'object') return;
+      const wasDone = p.done === '완료' || p.done === 'O' || p.done === 'Y';
+      const isDone  = completedSet.has(p.plotNo.toString().trim());
+      if (wasDone !== isDone) {
+        p.done = isDone ? '완료' : '';
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      localStorage.setItem('loaded_plots', JSON.stringify(plots));
+      applyLoadedPlots(plots, teamCode);
+    }
+  } catch(e) {
+    // 오프라인이거나 실패 시 무시
+  }
+}
 
 // ====== 오프라인 대기열 ======
 function getQueue() { return JSON.parse(localStorage.getItem('upload_queue') || '[]'); }
@@ -4309,7 +4371,7 @@ function buildCustomPlotList(plots, teamCode, todoCount, total) {
             style="padding:12px 18px;font-size:16px;font-weight:700;color:#2E7D32;border-bottom:1px solid var(--gray-border);cursor:pointer;background:var(--white);"
             onmousedown="this.style.background='#F1F8F1'" onmouseup="this.style.background='var(--white)'"
             ontouchstart="this.style.background='#F1F8F1'" ontouchend="this.style.background='var(--white)'">
-            ✓ ${pn}
+            <span style="font-weight:700;">✓ ${pn}</span>
           </div>`;
         });
       });
@@ -4321,7 +4383,7 @@ function buildCustomPlotList(plots, teamCode, todoCount, total) {
           style="padding:12px 18px;font-size:16px;font-weight:700;color:#2E7D32;border-bottom:1px solid var(--gray-border);cursor:pointer;background:var(--white);"
           onmousedown="this.style.background='#F1F8F1'" onmouseup="this.style.background='var(--white)'"
           ontouchstart="this.style.background='#F1F8F1'" ontouchend="this.style.background='var(--white)'">
-          ✓ ${pn}
+          <span style="font-weight:700;">✓ ${pn}</span>
         </div>`;
       });
     }
