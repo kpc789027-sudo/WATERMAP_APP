@@ -3507,27 +3507,21 @@ function updateMunsellDetail(ab) {
   detailEl.value = '';
 }
 
-// ====== A층 토색 계열 → B층 자동 연동 ======
+// ====== A층 토색 계열 → B층 자동 연동 (항상 강제 적용) ======
 function syncColorHueAtoB() {
   const aHue = document.getElementById('soil-color-a-hue');
   const bHue = document.getElementById('soil-color-b-hue');
   if (!aHue || !bHue) return;
-  // B층 계열이 아직 선택 안 된 경우에만 자동 적용
-  if (!bHue.value) {
-    bHue.value = aHue.value;
-    updateMunsellDetail('b');
-  }
+  bHue.value = aHue.value;
+  updateMunsellDetail('b');
 }
 
-// ====== 토양시료 자동 연동 (100cc → 이화학성) ======
+// ====== 토양시료 자동 연동 (100cc → 이화학성, 항상 강제 적용) ======
 function syncSampleField(srcId, dstId) {
   const src = document.getElementById(srcId);
   const dst = document.getElementById(dstId);
   if (!src || !dst) return;
-  // 대상이 아직 선택 안 된 경우에만 자동 적용
-  if (!dst.value) {
-    dst.value = src.value;
-  }
+  dst.value = src.value;
 }
 
 // ====== 토글 O/X ======

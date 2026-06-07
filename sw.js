@@ -1,7 +1,7 @@
 // 물지도 전자야장 Service Worker
-const CACHE_NAME = 'watermap-v100';
+const CACHE_NAME = 'watermap-v151';
 const ASSETS = [
-  './watermap_V100.html',
+  './watermap_V151.html',
   './manifest.json'
 ];
 
