@@ -3020,18 +3020,16 @@ async function saveData() {
 
   const photoPayloadList = await Promise.all(
     Object.entries(photoData).map(async ([idx, p]) => {
-      // 새로 찍은 사진(photo_N) 우선, 없으면 원본(view_plotNo_N) fallback → 12장 전부 업로드
-      let stored = await idbGet('photo_' + idx);
-      if (!stored || !stored.base64) stored = await idbGet(idbViewKey(plotNo, Number(idx)));
-      if (!stored || !stored.base64) return null;
+      const stored = await idbGet('photo_' + idx);
+      if (!stored) return null;
+      // IDB에 실제 데이터가 있으면 항상 업로드 (수정 모드에서도 새 사진은 덮어쓰기)
       return { type: 'photo', base64: stored.base64, filename: p.filename, plotNo, teamCode, weekCode, folderId };
     })
   );
   const movePhotoPayloadList = await Promise.all(
     Object.entries(movePhotoData).map(async ([idx, p]) => {
-      let stored = await idbGet('move_photo_' + idx);
-      if (!stored || !stored.base64) stored = await idbGet(idbMoveViewKey(plotNo, Number(idx)));
-      if (!stored || !stored.base64) return null;
+      const stored = await idbGet('move_photo_' + idx);
+      if (!stored) return null;
       return { type: 'photo', base64: stored.base64, filename: p.filename, plotNo, teamCode, weekCode, folderId };
     })
   );
