@@ -2852,42 +2852,53 @@ async function saveData() {
     const moveNeeded = document.getElementById('soil-move-need')?.value === '조사지이동';
     const emptySlots = [];
 
-    // 기존 photo-slot 강조 초기화
-    document.querySelectorAll('.photo-slot.photo-required-error')
-      .forEach(el => el.classList.remove('photo-required-error'));
+    // 이미 업로드 완료된 조사지인지 확인 — 수정 모드면 사진 검사 생략
+    const _plotNoSel = document.getElementById('soil-plot-no-select');
+    const _plotNoInp = document.getElementById('soil-plot-no');
+    const _checkPlotNo = (_plotNoSel && _plotNoSel.style.display !== 'none' ? _plotNoSel.value : '')
+                 || (_plotNoInp ? _plotNoInp.value.trim() : '') || '';
+    const _existingRec = JSON.parse(localStorage.getItem('survey_records') || '[]')
+      .find(r => r.plotNo === _checkPlotNo);
+    const alreadyUploaded = _existingRec && _existingRec.photoList &&
+      _existingRec.photoList.length > 0 &&
+      _existingRec.photoList.some(p => p.uploaded);
 
-    // 이동사진 4장 검사 (조사지이동 선택 시)
-    if (moveNeeded) {
-      for (let i = 0; i < 4; i++) {
-        let stored = null;
-        try { stored = await idbGet('move_photo_' + i); } catch(e) { stored = null; }
-        if (!stored) emptySlots.push({ id: 'photo-move-slot-' + i });
+    if (!alreadyUploaded) {
+      // 기존 photo-slot 강조 초기화
+      document.querySelectorAll('.photo-slot.photo-required-error')
+        .forEach(el => el.classList.remove('photo-required-error'));
+
+      // 이동사진 4장 검사 (조사지이동 선택 시)
+      if (moveNeeded) {
+        for (let i = 0; i < 4; i++) {
+          const stored = await idbGet('move_photo_' + i);
+          if (!stored) emptySlots.push({ id: 'photo-move-slot-' + i });
+        }
       }
-    }
-    // 표준지 12장 검사
-    for (let i = 0; i < 12; i++) {
-      let stored = null;
-      try { stored = await idbGet('photo_' + i); } catch(e) { stored = null; }
-      if (!stored) emptySlots.push({ id: 'photo-slot-' + i });
-    }
+      // 표준지 12장 검사
+      for (let i = 0; i < 12; i++) {
+        const stored = await idbGet('photo_' + i);
+        if (!stored) emptySlots.push({ id: 'photo-slot-' + i });
+      }
 
-    if (emptySlots.length > 0) {
-      // 빈 슬롯 강조 표시
-      emptySlots.forEach(s => {
-        const el = document.getElementById(s.id);
-        if (el) el.classList.add('photo-required-error');
-      });
-      // 사진촬영 탭으로 이동
-      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-      document.getElementById('tab-photo').classList.add('active');
-      document.querySelectorAll('.nav-btn')[2].classList.add('active');
-      currentTab = 'tab-photo';
-      // 첫 번째 빈 슬롯으로 스크롤
-      const firstEl = document.getElementById(emptySlots[0].id);
-      if (firstEl) firstEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      showToast(`📷 사진 ${emptySlots.length}장이 비어있습니다. 모두 촬영해주세요`, 'error');
-      return;
+      if (emptySlots.length > 0) {
+        // 빈 슬롯 강조 표시
+        emptySlots.forEach(s => {
+          const el = document.getElementById(s.id);
+          if (el) el.classList.add('photo-required-error');
+        });
+        // 사진촬영 탭으로 이동
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-photo').classList.add('active');
+        document.querySelectorAll('.nav-btn')[2].classList.add('active');
+        currentTab = 'tab-photo';
+        // 첫 번째 빈 슬롯으로 스크롤
+        const firstEl = document.getElementById(emptySlots[0].id);
+        if (firstEl) firstEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        showToast(`📷 사진 ${emptySlots.length}장이 비어있습니다. 모두 촬영해주세요`, 'error');
+        return;
+      }
     }
   }
 
@@ -3020,14 +3031,22 @@ async function saveData() {
 
   const photoPayloadList = await Promise.all(
     Object.entries(photoData).map(async ([idx, p]) => {
+      // 수정 모드에서 이미 업로드된 사진은 스킵
+      if (isEditMode2 && existingRec2.photoList) {
+        const existing = existingRec2.photoList.find(pl => pl.filename === p.filename);
+        if (existing && existing.uploaded) return null; // 이미 업로드됨 → 스킵
+      }
       const stored = await idbGet('photo_' + idx);
       if (!stored) return null;
-      // IDB에 실제 데이터가 있으면 항상 업로드 (수정 모드에서도 새 사진은 덮어쓰기)
       return { type: 'photo', base64: stored.base64, filename: p.filename, plotNo, teamCode, weekCode, folderId };
     })
   );
   const movePhotoPayloadList = await Promise.all(
     Object.entries(movePhotoData).map(async ([idx, p]) => {
+      if (isEditMode2 && existingRec2.photoList) {
+        const existing = existingRec2.photoList.find(pl => pl.filename === p.filename);
+        if (existing && existing.uploaded) return null;
+      }
       const stored = await idbGet('move_photo_' + idx);
       if (!stored) return null;
       return { type: 'photo', base64: stored.base64, filename: p.filename, plotNo, teamCode, weekCode, folderId };
