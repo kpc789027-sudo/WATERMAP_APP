@@ -2107,49 +2107,49 @@ function loadRecord(id) {
   const sel = document.getElementById('soil-plot-no-select');
   if (sel) sel.value = s[2] || '';
   setVal('soil-date',       s[3]);
-  // 조사지이동 라디오
-  setRadio('soil-move-need', s[4] || '해당없음');
+  // 날씨 역변환 (숫자코드 → 한글)
+  const REV_WEATHER = { 101001:'맑음', 101004:'흐림', 101005:'비' };
+  const weatherVal = REV_WEATHER[s[4]] || s[4] || '';
+  setRadio('soil-weather-radio', weatherVal);
+  setVal('soil-weather', weatherVal);
+  // s[5] 수행사, s[6] 조사책임자 → 팀코드 자동 적용
+  // 조사지이동 (s[7])
+  setRadio('soil-move-need', s[7] || '해당없음');
   const hidden = document.getElementById('soil-move-need');
-  if (hidden) hidden.value = s[4] || '해당없음';
-  // 날씨 라디오
-  setRadio('soil-weather-radio', s[5]);
-  setVal('soil-weather', s[5]);
-  setVal('soil-x',          s[6]);
-  setVal('soil-y',          s[7]);
+  if (hidden) hidden.value = s[7] || '해당없음';
+  setVal('soil-x',          s[8]);
+  setVal('soil-y',          s[9]);
   // 코드 역변환 후 설정
-  setVal('soil-erosion',    rv(REV.erosion,    s[8]));
-  setVal('soil-deposit',    rv(REV.deposit,    s[9]));
-  setVal('soil-wind',       rv(REV.wind,       s[10]));
-  setVal('soil-rock',       rv(REV.rock,       s[11]));
-  setVal('soil-org-l',      s[12]);
-  setVal('soil-org-f',      s[13]);
-  setVal('soil-org-h',      s[14]);
-  setVal('soil-depth-a',    s[15]);
-  setVal('soil-depth-b',    s[16]);
-  // 토색 2단계 복원 (hue 추출 → updateMunsellDetail → 세부값 설정)
+  setVal('soil-erosion',    rv(REV.erosion,    s[10]));
+  setVal('soil-deposit',    rv(REV.deposit,    s[11]));
+  setVal('soil-wind',       rv(REV.wind,       s[12]));
+  setVal('soil-rock',       rv(REV.rock,       s[13]));
+  setVal('soil-org-l',      s[14]);
+  setVal('soil-org-f',      s[15]);
+  setVal('soil-org-h',      s[16]);
+  setVal('soil-depth-a',    s[17]);
+  setVal('soil-depth-b',    s[18]);
+  // 토색 2단계 복원
   ['a', 'b'].forEach(function(ab, abIdx) {
-    const fullVal = s[17 + abIdx]; // a=s[17], b=s[18]
+    const fullVal = s[19 + abIdx]; // a=s[19], b=s[20]
     if (!fullVal) return;
-    // "2.5YR 1.7/1" → hue: "2.5YR", optionVal: "2.5YR 1.7/1" (옵션값과 동일)
     const spaceIdx = fullVal.indexOf(' ');
     const hue      = spaceIdx > -1 ? fullVal.substring(0, spaceIdx) : '';
-    const optionVal = fullVal; // 옵션 value가 "2.5YR 1.7/1" 전체이므로 그대로 사용
     const hueEl    = document.getElementById('soil-color-' + ab + '-hue');
     if (!hueEl || !hue) return;
     hueEl.value = hue;
-    updateMunsellDetail(ab); // 세부 옵션 생성 (동기)
-    // updateMunsellDetail은 동기이므로 바로 설정 가능
+    updateMunsellDetail(ab);
     const detailEl = document.getElementById('soil-color-' + ab);
-    if (detailEl) detailEl.value = optionVal;
+    if (detailEl) detailEl.value = fullVal;
   });
-  setVal('soil-weathering', rv(REV.weathering, s[19]));
-  setVal('soil-moist-a',    rv(REV.moist,      s[20]));
-  setVal('soil-moist-b',    rv(REV.moist,      s[21]));
-  setVal('soil-gravel-a',   s[22]);
-  setVal('soil-gravel-b',   s[23]);
-  setVal('soil-density-a',  s[24]);
-  setVal('soil-density-b',  s[25]);
-  // 토양형 역변환 (구글시트 저장값 B₁ → 앱값 B1)
+  setVal('soil-weathering', rv(REV.weathering, s[21]));
+  setVal('soil-moist-a',    rv(REV.moist,      s[22]));
+  setVal('soil-moist-b',    rv(REV.moist,      s[23]));
+  setVal('soil-gravel-a',   s[24]);
+  setVal('soil-gravel-b',   s[25]);
+  setVal('soil-density-a',  s[26]);
+  setVal('soil-density-b',  s[27]);
+  // 토양형 역변환
   const soilTypeRev = {
     'B₁':'B1','B₂':'B2','B₃':'B3','B₄':'B4',
     'Rb₁':'Rb1','Rb₂':'Rb2',
@@ -2161,19 +2161,23 @@ function loadRecord(id) {
     'Va-R₁':'Va-R1','Va-R₂':'Va-R2',
     'Er₁':'Er1','Er₂':'Er2',
   };
-  setVal('soil-type', soilTypeRev[s[26]] || s[26]);
-  setVal('soil-100cc-10',   s[27]);
-  setVal('soil-100cc-30',   s[28]);
-  setVal('soil-chem-10',    s[29]);
-  setVal('soil-chem-30',    s[30]);
-  setVal('soil-note',       s[31]);
-  // s[32] 조사자는 팀코드에서 가져오므로 복원 불필요
+  setVal('soil-type', soilTypeRev[s[28]] || s[28]);
+  // 100cc/이화학성 역변환 (1→O, 2→X)
+  const REV_SAMPLE = { 1:'O', 2:'X' };
+  const rs = (v) => REV_SAMPLE[v] !== undefined ? REV_SAMPLE[v] : v;
+  setVal('soil-100cc-10',   rs(s[29]));
+  setVal('soil-100cc-30',   rs(s[30]));
+  setVal('soil-chem-10',    rs(s[31]));
+  setVal('soil-chem-30',    rs(s[32]));
+  setVal('soil-note',       s[33]);
 
   // 임목조사 복원
   const treeRows = rec.treeRows || [];
-  // 임업유형 라디오
+  // 임종 역변환 (숫자코드 → 한글)
+  const REV_FOREST = { 1:'인공림', 2:'천연림' };
   if (treeRows.length > 0) {
-    setRadio('tree-forest-type', treeRows[0][4]);
+    const fv = REV_FOREST[treeRows[0][4]] !== undefined ? REV_FOREST[treeRows[0][4]] : treeRows[0][4];
+    setRadio('tree-forest-type', fv);
   }
   treeRows.forEach(row => {
     const i = row[5]; // No
@@ -2847,58 +2851,43 @@ async function saveData() {
     return;
   }
 
-  // ====== 사진 유효성 검사 ======
+  // ====== 사진 유효성 검사 (photoData 기준) ======
   {
     const moveNeeded = document.getElementById('soil-move-need')?.value === '조사지이동';
     const emptySlots = [];
 
-    // 이미 업로드 완료된 조사지인지 확인 — 수정 모드면 사진 검사 생략
-    const _plotNoSel = document.getElementById('soil-plot-no-select');
-    const _plotNoInp = document.getElementById('soil-plot-no');
-    const _checkPlotNo = (_plotNoSel && _plotNoSel.style.display !== 'none' ? _plotNoSel.value : '')
-                 || (_plotNoInp ? _plotNoInp.value.trim() : '') || '';
-    const _existingRec = JSON.parse(localStorage.getItem('survey_records') || '[]')
-      .find(r => r.plotNo === _checkPlotNo);
-    const alreadyUploaded = _existingRec && _existingRec.photoList &&
-      _existingRec.photoList.length > 0 &&
-      _existingRec.photoList.some(p => p.uploaded);
+    // 기존 photo-slot 강조 초기화
+    document.querySelectorAll('.photo-slot.photo-required-error')
+      .forEach(el => el.classList.remove('photo-required-error'));
 
-    if (!alreadyUploaded) {
-      // 기존 photo-slot 강조 초기화
-      document.querySelectorAll('.photo-slot.photo-required-error')
-        .forEach(el => el.classList.remove('photo-required-error'));
+    // 이동사진 4장 검사 (조사지이동 선택 시)
+    if (moveNeeded) {
+      for (let i = 0; i < 4; i++) {
+        if (!movePhotoData[i]) emptySlots.push({ id: 'photo-move-slot-' + i });
+      }
+    }
+    // 표준지 12장 검사
+    for (let i = 0; i < 12; i++) {
+      if (!photoData[i]) emptySlots.push({ id: 'photo-slot-' + i });
+    }
 
-      // 이동사진 4장 검사 (조사지이동 선택 시)
-      if (moveNeeded) {
-        for (let i = 0; i < 4; i++) {
-          const stored = await idbGet('move_photo_' + i);
-          if (!stored) emptySlots.push({ id: 'photo-move-slot-' + i });
-        }
-      }
-      // 표준지 12장 검사
-      for (let i = 0; i < 12; i++) {
-        const stored = await idbGet('photo_' + i);
-        if (!stored) emptySlots.push({ id: 'photo-slot-' + i });
-      }
-
-      if (emptySlots.length > 0) {
-        // 빈 슬롯 강조 표시
-        emptySlots.forEach(s => {
-          const el = document.getElementById(s.id);
-          if (el) el.classList.add('photo-required-error');
-        });
-        // 사진촬영 탭으로 이동
-        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById('tab-photo').classList.add('active');
-        document.querySelectorAll('.nav-btn')[2].classList.add('active');
-        currentTab = 'tab-photo';
-        // 첫 번째 빈 슬롯으로 스크롤
-        const firstEl = document.getElementById(emptySlots[0].id);
-        if (firstEl) firstEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        showToast(`📷 사진 ${emptySlots.length}장이 비어있습니다. 모두 촬영해주세요`, 'error');
-        return;
-      }
+    if (emptySlots.length > 0) {
+      // 빈 슬롯 강조 표시
+      emptySlots.forEach(s => {
+        const el = document.getElementById(s.id);
+        if (el) el.classList.add('photo-required-error');
+      });
+      // 사진촬영 탭으로 이동
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('tab-photo').classList.add('active');
+      document.querySelectorAll('.nav-btn')[2].classList.add('active');
+      currentTab = 'tab-photo';
+      // 첫 번째 빈 슬롯으로 스크롤
+      const firstEl = document.getElementById(emptySlots[0].id);
+      if (firstEl) firstEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      showToast(`📷 사진 ${emptySlots.length}장이 비어있습니다. 모두 촬영해주세요`, 'error');
+      return;
     }
   }
 
@@ -3031,24 +3020,18 @@ async function saveData() {
 
   const photoPayloadList = await Promise.all(
     Object.entries(photoData).map(async ([idx, p]) => {
-      // 수정 모드에서 이미 업로드된 사진은 스킵
-      if (isEditMode2 && existingRec2.photoList) {
-        const existing = existingRec2.photoList.find(pl => pl.filename === p.filename);
-        if (existing && existing.uploaded) return null; // 이미 업로드됨 → 스킵
-      }
-      const stored = await idbGet('photo_' + idx);
-      if (!stored) return null;
+      // photo_N(새로 찍은 것) 우선, 없으면 viewKey(불러온 원본) fallback
+      let stored = await idbGet('photo_' + idx);
+      if (!stored || !stored.base64) stored = await idbGet(idbViewKey(plotNo, Number(idx)));
+      if (!stored || !stored.base64) return null;
       return { type: 'photo', base64: stored.base64, filename: p.filename, plotNo, teamCode, weekCode, folderId };
     })
   );
   const movePhotoPayloadList = await Promise.all(
     Object.entries(movePhotoData).map(async ([idx, p]) => {
-      if (isEditMode2 && existingRec2.photoList) {
-        const existing = existingRec2.photoList.find(pl => pl.filename === p.filename);
-        if (existing && existing.uploaded) return null;
-      }
-      const stored = await idbGet('move_photo_' + idx);
-      if (!stored) return null;
+      let stored = await idbGet('move_photo_' + idx);
+      if (!stored || !stored.base64) stored = await idbGet(idbMoveViewKey(plotNo, Number(idx)));
+      if (!stored || !stored.base64) return null;
       return { type: 'photo', base64: stored.base64, filename: p.filename, plotNo, teamCode, weekCode, folderId };
     })
   );
@@ -3133,6 +3116,10 @@ async function saveData() {
 
   clearDraft();
 
+  // 저장 완료 후 IDB 사진 데이터 클리어 (다음 조사지에서 빈 슬롯 정확히 인식)
+  for (let i = 0; i < 12; i++) idbDelete('photo_' + i).catch(() => {});
+  for (let i = 0; i < 4; i++) idbDelete('move_photo_' + i).catch(() => {});
+
   if (failedPhotos.length === 0) {
     showToast('✓ Google Sheets 업로드 완료!', 'success');
     markPlotDoneInDropdown(plotNo); // 드롭다운 즉시 완료 표시
@@ -3140,26 +3127,27 @@ async function saveData() {
 
   const hasNewPhotos = photoPayloads.filter(Boolean).length > 0;
   if (!isEditMode2 || hasNewPhotos) {
-    // 수정 모드면 새로 찍은 사진만 ZIP, 최초 업로드면 전체 ZIP
     await downloadPhotosAsZip(plotNo, isEditMode2);
   }
 
-  // 입지토양 탭에서 저장 시 → 임목조사 탭으로 자동 이동
-  if (currentTab === 'tab-soil') {
-    setTimeout(function() {
-      const treeBtn = document.querySelector('.nav-btn[onclick*="tab-tree"]');
-      if (treeBtn) treeBtn.click();
-      setTimeout(function() {
-        window.scrollTo(0, 0);
-        document.documentElement.scrollTop = 0;
-        document.body.scrollTop = 0;
-        const treePanel = document.getElementById('tab-tree');
-        if (treePanel) treePanel.scrollTop = 0;
-        var el = treePanel;
-        while (el) { el.scrollTop = 0; el = el.parentElement; }
-      }, 200);
-    }, 800);
+  // 저장 완료 후 전체 초기화 (다음 조사 준비)
+  _doReset();
+  // 조사지 위치 박스 숨기기
+  const addrBox = document.getElementById('plot-address-box');
+  if (addrBox) addrBox.style.display = 'none';
+  // 커스텀 드롭다운 초기화
+  const plotDisplay = document.getElementById('custom-plot-display');
+  if (plotDisplay) {
+    plotDisplay.textContent = '포인트 선택';
+    plotDisplay.style.color = 'var(--text-sub)';
+    plotDisplay.style.fontWeight = '';
   }
+  // 입지토양 탭으로 이동
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-soil').classList.add('active');
+  document.querySelectorAll('.nav-btn')[0].classList.add('active');
+  currentTab = 'tab-soil';
 
   btn.disabled = false;
   btn.textContent = '저장 및 업로드';
@@ -4799,25 +4787,30 @@ function _restoreRecordData(rec) {
 
   // 조사지번호/유역명/유역코드는 onPlotSelect에서 이미 설정 — 나머지 복원
   setVal('soil-date',       s[3]);
-  setRadio('soil-move-need', s[4] || '해당없음');
+  // 날씨 역변환 (숫자코드 → 한글)
+  const REV_WEATHER = { 101001:'맑음', 101004:'흐림', 101005:'비' };
+  const weatherVal = REV_WEATHER[s[4]] || s[4] || '';
+  setRadio('soil-weather-radio', weatherVal);
+  setVal('soil-weather',    weatherVal);
+  // s[5] 수행사, s[6] 조사책임자 → 팀코드 자동 적용
+  // 조사지이동 (s[7])
+  setRadio('soil-move-need', s[7] || '해당없음');
   const mv = document.getElementById('soil-move-need');
-  if (mv) mv.value = s[4] || '해당없음';
-  setRadio('soil-weather-radio', s[5]);
-  setVal('soil-weather',    s[5]);
-  setVal('soil-x',          s[6]);
-  setVal('soil-y',          s[7]);
-  setVal('soil-erosion',    rv(REV.erosion,    s[8]));
-  setVal('soil-deposit',    rv(REV.deposit,    s[9]));
-  setVal('soil-wind',       rv(REV.wind,       s[10]));
-  setVal('soil-rock',       rv(REV.rock,       s[11]));
-  setVal('soil-org-l',      s[12]);
-  setVal('soil-org-f',      s[13]);
-  setVal('soil-org-h',      s[14]);
-  setVal('soil-depth-a',    s[15]);
-  setVal('soil-depth-b',    s[16]);
+  if (mv) mv.value = s[7] || '해당없음';
+  setVal('soil-x',          s[8]);
+  setVal('soil-y',          s[9]);
+  setVal('soil-erosion',    rv(REV.erosion,    s[10]));
+  setVal('soil-deposit',    rv(REV.deposit,    s[11]));
+  setVal('soil-wind',       rv(REV.wind,       s[12]));
+  setVal('soil-rock',       rv(REV.rock,       s[13]));
+  setVal('soil-org-l',      s[14]);
+  setVal('soil-org-f',      s[15]);
+  setVal('soil-org-h',      s[16]);
+  setVal('soil-depth-a',    s[17]);
+  setVal('soil-depth-b',    s[18]);
   // 토색 2단계 복원
   ['a','b'].forEach(function(ab, abIdx) {
-    const fullVal = s[17 + abIdx];
+    const fullVal = s[19 + abIdx]; // a=s[19], b=s[20]
     if (!fullVal) return;
     const spaceIdx = fullVal.indexOf(' ');
     const hue = spaceIdx > -1 ? fullVal.substring(0, spaceIdx) : '';
@@ -4828,23 +4821,30 @@ function _restoreRecordData(rec) {
     const detailEl = document.getElementById('soil-color-' + ab);
     if (detailEl) detailEl.value = fullVal;
   });
-  setVal('soil-weathering', rv(REV.weathering, s[19]));
-  setVal('soil-moist-a',    rv(REV.moist,      s[20]));
-  setVal('soil-moist-b',    rv(REV.moist,      s[21]));
-  setVal('soil-gravel-a',   s[22]);
-  setVal('soil-gravel-b',   s[23]);
-  setVal('soil-density-a',  s[24]);
-  setVal('soil-density-b',  s[25]);
-  setVal('soil-type',       soilTypeRev[s[26]] || s[26]);
-  setVal('soil-100cc-10',   s[27]);
-  setVal('soil-100cc-30',   s[28]);
-  setVal('soil-chem-10',    s[29]);
-  setVal('soil-chem-30',    s[30]);
-  setVal('soil-note',       s[31]);
-  // s[32] 조사자는 팀코드에서 가져오므로 복원 불필요
+  setVal('soil-weathering', rv(REV.weathering, s[21]));
+  setVal('soil-moist-a',    rv(REV.moist,      s[22]));
+  setVal('soil-moist-b',    rv(REV.moist,      s[23]));
+  setVal('soil-gravel-a',   s[24]);
+  setVal('soil-gravel-b',   s[25]);
+  setVal('soil-density-a',  s[26]);
+  setVal('soil-density-b',  s[27]);
+  setVal('soil-type',       soilTypeRev[s[28]] || s[28]);
+  // 100cc/이화학성 역변환 (1→O, 2→X)
+  const REV_SAMPLE = { 1:'O', 2:'X' };
+  const rs = (v) => REV_SAMPLE[v] !== undefined ? REV_SAMPLE[v] : v;
+  setVal('soil-100cc-10',   rs(s[29]));
+  setVal('soil-100cc-30',   rs(s[30]));
+  setVal('soil-chem-10',    rs(s[31]));
+  setVal('soil-chem-30',    rs(s[32]));
+  setVal('soil-note',       s[33]);
   // 임목 복원
   const treeRows = rec.treeRows || [];
-  if (treeRows.length > 0) setRadio('tree-forest-type', treeRows[0][4]);
+  // 임종 역변환 (숫자코드 → 한글)
+  const REV_FOREST = { 1:'인공림', 2:'천연림' };
+  if (treeRows.length > 0) {
+    const fv = REV_FOREST[treeRows[0][4]] !== undefined ? REV_FOREST[treeRows[0][4]] : treeRows[0][4];
+    setRadio('tree-forest-type', fv);
+  }
   treeRows.forEach(row => {
     const i = row[5]; if (!i) return;
     setVal('tr-species-' + i, row[6]);
@@ -4866,9 +4866,9 @@ function _restoreRecordData(rec) {
     Promise.all(SLOTS.map(async (slotName, idx) => {
       const expectedFilename = pn + '(' + slotName + ').jpg';
       if (!rec.photoList.find(p => p.filename === expectedFilename)) return;
-      // ★ 썸네일 키 우선, 없으면 원본 키 fallback
+      // 썸네일 키 우선, 없으면 원본 키 fallback
       let stored = await idbGet(idbThumbKey(pn, idx));
-      if (!stored || !stored.base64) stored = await idbGet('photo_' + idx);
+      if (!stored || !stored.base64) stored = await idbGet(idbViewKey(pn, idx));
       if (!stored || !stored.base64) return;
       photoData[idx] = { filename: expectedFilename };
       const slot = document.getElementById('photo-slot-' + idx);
@@ -4895,7 +4895,7 @@ function _restoreRecordData(rec) {
       const expectedFilename = pn + '(' + slotName + ').jpg';
       if (!rec.photoList.find(p => p.filename === expectedFilename)) return;
       let stored = await idbGet(idbMoveThumbKey(pn, idx));
-      if (!stored || !stored.base64) stored = await idbGet('move_photo_' + idx);
+      if (!stored || !stored.base64) stored = await idbGet(idbMoveViewKey(pn, idx));
       if (!stored || !stored.base64) return;
       movePhotoData[idx] = { filename: expectedFilename };
       const slot = document.getElementById('photo-move-slot-' + idx);
@@ -5137,6 +5137,16 @@ function _doReset() {
   if (weatherClear) {
     weatherClear.checked = true;
     document.getElementById('soil-weather').value = '맑음';
+  }
+  // 조사지 위치 박스 숨기기
+  const addrBoxReset = document.getElementById('plot-address-box');
+  if (addrBoxReset) addrBoxReset.style.display = 'none';
+  // 커스텀 드롭다운 초기화
+  const plotDisplayReset = document.getElementById('custom-plot-display');
+  if (plotDisplayReset) {
+    plotDisplayReset.textContent = '포인트 선택';
+    plotDisplayReset.style.color = 'var(--text-sub)';
+    plotDisplayReset.style.fontWeight = '';
   }
 }
 

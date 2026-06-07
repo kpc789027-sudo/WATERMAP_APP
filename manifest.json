@@ -2,7 +2,7 @@
   "name": "물지도 전자야장",
   "short_name": "물지도야장",
   "description": "물지도 산림 현장조사 전자야장",
-  "start_url": "./watermap_V151.html",
+  "start_url": "./watermap_V100.html",
   "display": "standalone",
   "orientation": "portrait",
   "theme_color": "#0A5C45",
