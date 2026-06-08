@@ -412,7 +412,6 @@ body.dark-mode #tab-tree table td:first-child {
     <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
   </div>
   <h1>산림 물지도 조사데이터 통합관리 시스템</h1>
-  <span class="sync-badge" id="sync-badge">대기 <span id="sync-count">0</span>건</span>
   <span class="topbar-badge badge-ok" id="gps-badge">GPS 대기</span>
 </div>
 
@@ -944,60 +943,8 @@ body.dark-mode #tab-tree table td:first-child {
     </div>
   </div>
 
-  <!-- 나침반 -->
-  <div class="card">
-    <div class="card-header">
-      <span class="card-header-icon">🧭</span>
-      <h2>나침반</h2>
-      <span id="compass-deg" style="margin-left:auto;font-size:14px;font-weight:700;color:var(--green-dark);background:var(--green-light);padding:3px 10px;border-radius:20px;">-- °</span>
-    </div>
-    <div style="padding:10px 14px 14px;">
-      <div style="display:flex;align-items:center;gap:16px;">
-        <div style="position:relative;width:120px;height:120px;flex-shrink:0;">
-          <svg width="120" height="120" viewBox="0 0 120 120">
-            <circle cx="60" cy="60" r="56" fill="none" stroke="var(--gray-border)" stroke-width="1.5"/>
-            <circle cx="60" cy="60" r="42" fill="none" stroke="var(--gray-border)" stroke-width="0.5" stroke-dasharray="2,4"/>
-            <text x="60" y="12" text-anchor="middle" font-size="13" font-weight="700" fill="#E24B4A">N</text>
-            <text x="60" y="114" text-anchor="middle" font-size="13" font-weight="700" fill="var(--text-sub)">S</text>
-            <text x="112" y="64" text-anchor="middle" font-size="13" font-weight="700" fill="var(--text-sub)">E</text>
-            <text x="8" y="64" text-anchor="middle" font-size="13" font-weight="700" fill="var(--text-sub)">W</text>
-            <text x="87" y="36" text-anchor="middle" font-size="9" fill="var(--text-sub)">NE</text>
-            <text x="87" y="90" text-anchor="middle" font-size="9" fill="var(--text-sub)">SE</text>
-            <text x="33" y="90" text-anchor="middle" font-size="9" fill="var(--text-sub)">SW</text>
-            <text x="33" y="36" text-anchor="middle" font-size="9" fill="var(--text-sub)">NW</text>
-            <g id="compass-needle" style="transform-origin:60px 60px;transform:rotate(0deg);">
-              <polygon points="60,10 55,60 65,60" fill="#E24B4A"/>
-              <polygon points="60,110 55,60 65,60" fill="var(--text-sub)" opacity="0.5"/>
-            </g>
-            <circle cx="60" cy="60" r="5" fill="var(--white)" stroke="var(--gray-border)" stroke-width="1.5"/>
-            <circle cx="60" cy="60" r="2.5" fill="var(--text)"/>
-          </svg>
-        </div>
-        <div style="flex:1;">
-          <div style="font-size:36px;font-weight:700;color:var(--text);line-height:1;" id="compass-dir-text">--</div>
-          <div style="font-size:13px;color:var(--text-sub);margin-top:4px;" id="compass-dir-sub">센서 초기화 중...</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px;">
-            <div style="background:var(--gray-bg);border-radius:var(--radius-sm);padding:6px 8px;text-align:center;">
-              <div style="font-size:10px;color:var(--text-sub);">북(N) 0°</div>
-              <div style="font-size:11px;font-weight:700;color:#E24B4A;">↑ 정북</div>
-            </div>
-            <div style="background:var(--gray-bg);border-radius:var(--radius-sm);padding:6px 8px;text-align:center;">
-              <div style="font-size:10px;color:var(--text-sub);">동(E) 90°</div>
-              <div style="font-size:11px;font-weight:700;color:var(--text);">→ 동쪽</div>
-            </div>
-            <div style="background:var(--gray-bg);border-radius:var(--radius-sm);padding:6px 8px;text-align:center;">
-              <div style="font-size:10px;color:var(--text-sub);">남(S) 180°</div>
-              <div style="font-size:11px;font-weight:700;color:var(--text);">↓ 남쪽</div>
-            </div>
-            <div style="background:var(--gray-bg);border-radius:var(--radius-sm);padding:6px 8px;text-align:center;">
-              <div style="font-size:10px;color:var(--text-sub);">서(W) 270°</div>
-              <div style="font-size:11px;font-weight:700;color:var(--text);">← 서쪽</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+
+
 
 </div><!-- /tab-photo -->
 
@@ -1629,6 +1576,7 @@ const MASTER_DRIVE_FOLDER = '1p4YEtBtK0MqNYNzHFUTCw24I4pMH_FmA';
 let currentTab = 'tab-soil';
 let treeRowCount = 0;
 let photoData = {};
+let _isUploading = false; // 업로드 중 중복 방지 플래그
 
 // ====== IndexedDB ======
 let _idb = null;
@@ -1811,7 +1759,7 @@ async function restoreDraft() {
             slot.appendChild(img);
             // 복원된 사진 → 사진 있을 때 바텀시트
             slot.style.cursor = 'pointer';
-            slot.onclick = () => openPhotoSheet('filled', 'photo', Number(k), PHOTO_SLOTS[Number(k)]);
+            slot.onclick = () => openPhotoSheet('filled', 'photo', Number(k), PHOTO_SLOTS_LABEL[Number(k)]);
           }
         }
       }
@@ -1831,7 +1779,7 @@ async function restoreDraft() {
             slot.appendChild(img);
             // 복원된 이동사진 → 사진 있을 때 바텀시트
             slot.style.cursor = 'pointer';
-            slot.onclick = () => openPhotoSheet('filled', 'move', Number(k), MOVE_PHOTO_SLOTS[Number(k)]);
+            slot.onclick = () => openPhotoSheet('filled', 'move', Number(k), MOVE_PHOTO_SLOTS_LABEL[Number(k)]);
           }
         }
       }
@@ -1879,127 +1827,6 @@ function scrollSelectTo(sel, targetVal) {
     }
   }
 }
-
-// ====== 나침반 ======
-(function() {
-  var _displayDeg = null;   // 현재 화면에 표시된 각도
-  var _targetDeg  = null;   // 목표 각도 (최신 스무딩값)
-  var _rafId      = null;   // requestAnimationFrame ID
-
-  // ── 안정화 파라미터 ──────────────────────────────
-  var SAMPLE_SIZE   = 20;   // 샘플 개수 (클수록 안정적, 반응 느림)
-  var MIN_CHANGE    = 2;    // 이 각도 미만 변화는 무시 (잔떨림 제거)
-  var LERP_FACTOR   = 0.08; // 보간 속도 (0.0~1.0, 작을수록 부드럽고 느림)
-  // ────────────────────────────────────────────────
-
-  var _samples = [];
-
-  // 각도 평균 (0/360 경계 안전 처리)
-  function smoothDeg(newDeg) {
-    _samples.push(newDeg);
-    if (_samples.length > SAMPLE_SIZE) _samples.shift();
-    var sinSum = 0, cosSum = 0;
-    for (var i = 0; i < _samples.length; i++) {
-      var rad = _samples[i] * Math.PI / 180;
-      sinSum += Math.sin(rad);
-      cosSum += Math.cos(rad);
-    }
-    return (Math.atan2(sinSum, cosSum) * 180 / Math.PI + 360) % 360;
-  }
-
-  // 두 각도 간 최단 회전 차이 (-180 ~ +180)
-  function angleDiff(a, b) {
-    var d = ((b - a) % 360 + 540) % 360 - 180;
-    return d;
-  }
-
-  // rAF 루프: 목표각도까지 부드럽게 보간
-  function animLoop() {
-    if (_targetDeg === null) { _rafId = null; return; }
-    if (_displayDeg === null) _displayDeg = _targetDeg;
-
-    var diff = angleDiff(_displayDeg, _targetDeg);
-
-    // 잔떨림 억제: 목표와 차이가 MIN_CHANGE 미만이면 고정
-    if (Math.abs(diff) < MIN_CHANGE) {
-      _rafId = requestAnimationFrame(animLoop);
-      return;
-    }
-
-    _displayDeg = (_displayDeg + diff * LERP_FACTOR + 360) % 360;
-
-    var needle = document.getElementById('compass-needle');
-    if (needle) {
-      // 빨간 침(위쪽)이 북쪽을 가리킴 = 정상 나침반
-      needle.style.transform = 'rotate(' + _displayDeg + 'deg)';
-    }
-
-    var deg    = Math.round(_displayDeg);
-    var dirs   = ['N','NE','E','SE','S','SW','W','NW'];
-    var dirsKo = ['북','북동','동','남동','남','남서','서','북서'];
-    var idx    = Math.round(deg / 45) % 8;
-    var degEl   = document.getElementById('compass-deg');
-    var dirText = document.getElementById('compass-dir-text');
-    var dirSub  = document.getElementById('compass-dir-sub');
-    if (degEl)   degEl.textContent   = dirs[idx] + ' ' + deg + '°';
-    if (dirText) dirText.textContent = dirs[idx];
-    if (dirSub)  dirSub.textContent  = dirsKo[idx] + ' ' + deg + '°';
-
-    _rafId = requestAnimationFrame(animLoop);
-  }
-
-  function onEvent(e) {
-    var raw = null;
-    if (e.webkitCompassHeading != null && !isNaN(e.webkitCompassHeading)) {
-      raw = e.webkitCompassHeading;          // iOS: 이미 자북 기준
-    } else if (e.alpha != null && !isNaN(e.alpha)) {
-      raw = (360 - e.alpha + 360) % 360;    // Android
-    }
-    if (raw === null) return;
-    _targetDeg = smoothDeg(raw);
-    if (_rafId === null) _rafId = requestAnimationFrame(animLoop);
-  }
-
-  function startListening() {
-    window.addEventListener('deviceorientationabsolute', onEvent, true);
-    window.addEventListener('deviceorientation', onEvent, true);
-    var sub = document.getElementById('compass-dir-sub');
-    if (sub) sub.textContent = '방향을 감지하는 중...';
-  }
-
-  document.addEventListener('DOMContentLoaded', function() {
-    var sub = document.getElementById('compass-dir-sub');
-
-    if (typeof DeviceOrientationEvent === 'undefined') {
-      if (sub) sub.textContent = '이 기기는 나침반을 지원하지 않습니다';
-      return;
-    }
-
-    // iOS 13+
-    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-      if (sub) sub.textContent = '화면을 탭하면 나침반이 시작됩니다 (iOS)';
-      function iosTap() {
-        DeviceOrientationEvent.requestPermission()
-          .then(function(result) {
-            if (result === 'granted') {
-              startListening();
-            } else {
-              var s = document.getElementById('compass-dir-sub');
-              if (s) s.textContent = '권한 거부 — 설정>Safari>동작 및 방향 허용';
-            }
-          }).catch(function(err) {
-            var s = document.getElementById('compass-dir-sub');
-            if (s) s.textContent = '오류: ' + err.message;
-          });
-        document.removeEventListener('touchend', iosTap);
-      }
-      document.addEventListener('touchend', iosTap);
-    } else {
-      // Android / 기타 — 즉시 시작
-      startListening();
-    }
-  });
-})();
 
 // ====== 사진 ZIP 다운로드 ======
 async function downloadPhotosAsZip(plotNo, onlyNew = false) {
@@ -2211,6 +2038,10 @@ function saveMovePhotos() {
 const PHOTO_SLOTS = [
   'C_울폐도','N_8M','N_4M_울폐도','E_8M','E_4M_울폐도',
   'S_8M','S_4M_울폐도','W_8M','W_4M_울폐도','전토심','토양단면','지표면'
+];
+const PHOTO_SLOTS_LABEL = [
+  '중앙_울폐도','북_8M','북_4M_울폐도','동_8M','동_4M_울폐도',
+  '남_8M','남_4M_울폐도','서_8M','서_4M_울폐도','전토심','토양단면','지표면'
 ];
 
 // ====== 초기화 ======
@@ -2555,7 +2386,8 @@ function updateOnlineStatus() {
 }
 window.addEventListener('online', () => {
   updateOnlineStatus();
-  // 인터넷 연결 시 완료 목록 자동 갱신
+  // 인터넷 연결 시 미완료 업로드 자동 처리
+  setTimeout(() => autoRetryUpload(), 1000);
   setTimeout(() => syncCompletedPlots(), 1500);
 });
 window.addEventListener('offline', updateOnlineStatus);
@@ -2618,6 +2450,13 @@ async function autoRetryUpload() {
   });
   if (incomplete.length === 0) return;
 
+  // 자동 업로드 중 저장 버튼 + 재업로드 버튼 모두 비활성화
+  _isUploading = true;
+  const saveBtn = document.getElementById('save-btn');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '업로드 중...'; }
+  document.querySelectorAll('[id^="reupload-btn-"]').forEach(btn => {
+    btn.disabled = true; btn.textContent = '업로드 중...';
+  });
   showToast('📤 미완료 업로드 ' + incomplete.length + '건 자동 처리 중...', 'info');
   let successCount = 0;
   let failedCount = 0;
@@ -2649,25 +2488,31 @@ async function autoRetryUpload() {
       const MOVE_SLOTS   = ['N_기존현황','E_기존현황','S_기존현황','W_기존현황'];
 
       if (rec.photoList && rec.photoList.length > 0) {
+        const totalPhotos = rec.photoList.filter(p => !p.uploaded).length;
+        let donePhotos = 0;
         for (const p of rec.photoList) {
           if (p.uploaded) continue;
 
-          // IDB에서 사진 데이터 찾기
+          // IDB에서 사진 데이터 찾기 — photo_N 우선, 없으면 viewKey fallback
           let base64 = null;
           const normalIdx = NORMAL_SLOTS.findIndex(s => p.filename.includes('(' + s + ')'));
           if (normalIdx !== -1) {
-            const stored = await idbGet('photo_' + normalIdx);
+            let stored = await idbGet('photo_' + normalIdx);
+            if (!stored || !stored.base64) stored = await idbGet(idbViewKey(plotNo, normalIdx));
             if (stored && stored.base64) base64 = stored.base64;
           }
           if (!base64) {
             const moveIdx = MOVE_SLOTS.findIndex(s => p.filename.includes('(' + s + ')'));
             if (moveIdx !== -1) {
-              const stored = await idbGet('move_photo_' + moveIdx);
+              let stored = await idbGet('move_photo_' + moveIdx);
+              if (!stored || !stored.base64) stored = await idbGet(idbMoveViewKey(plotNo, moveIdx));
               if (stored && stored.base64) base64 = stored.base64;
             }
           }
-          if (!base64) { console.warn('autoRetry: IDB에 사진 없음 —', p.filename); continue; }
+          if (!base64) { console.warn('autoRetry: IDB에 사진 없음 —', p.filename); failedPhotoCount++; continue; }
 
+          donePhotos++;
+          showToast(`📷 ${plotNo} 사진 업로드 중... ${donePhotos}/${totalPhotos}`, 'info');
           try {
             await sendToScript(scriptUrl, { type: 'photo', base64, filename: p.filename, plotNo, teamCode, weekCode, folderId });
             // 1장 성공 시 즉시 uploaded:true 저장
@@ -2722,19 +2567,13 @@ async function autoRetryUpload() {
       successPlots.forEach(pn => markPlotDoneInDropdown(pn));
     }
   }
+  // 자동 업로드 완료 후 저장 버튼 + 재업로드 버튼 다시 활성화
+  _isUploading = false;
+  if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '저장 및 업로드'; }
+  renderRecordsList(); // 재업로드 버튼 상태 최신화
 }
 
-function updateSyncBadge() {
-  const q = getQueue();
-  const badge = document.getElementById('sync-badge');
-  const cnt = document.getElementById('sync-count');
-  if (q.length > 0) {
-    badge.style.display = 'inline-block';
-    cnt.textContent = q.length;
-  } else {
-    badge.style.display = 'none';
-  }
-}
+function updateSyncBadge() {}
 
 async function flushOfflineQueue() {
   const scriptUrl = localStorage.getItem('script_url') || MASTER_SCRIPT_URL;
@@ -2951,6 +2790,11 @@ async function saveData() {
   const btn = document.getElementById('save-btn');
   btn.disabled = true;
   btn.textContent = '저장 중...';
+  _isUploading = true;
+  // 재업로드 버튼도 비활성화
+  document.querySelectorAll('[id^="reupload-btn-"]').forEach(b => {
+    b.disabled = true; b.textContent = '업로드 중...';
+  });
 
   const plotNoSelect = document.getElementById('soil-plot-no-select');
   const plotNoInput  = document.getElementById('soil-plot-no');
@@ -3014,23 +2858,19 @@ async function saveData() {
     existingRec2.photoList.length > 0 &&
     existingRec2.photoList.some(p => p.uploaded);
 
-  // 수정 모드여도 uploaded:false인 사진은 업로드 (새로 찍은 사진)
-  // 신규 모드면 모든 사진 업로드
   const folderId = localStorage.getItem('drive_folder') || MASTER_DRIVE_FOLDER;
 
   const photoPayloadList = await Promise.all(
     Object.entries(photoData).map(async ([idx, p]) => {
-      // photo_N(새로 찍은 것) 우선, 없으면 viewKey(불러온 원본) fallback
-      let stored = await idbGet('photo_' + idx);
-      if (!stored || !stored.base64) stored = await idbGet(idbViewKey(plotNo, Number(idx)));
+      // photo_N(새로 찍은 것)만 업로드 — 없으면 드라이브에 이미 있는 것이므로 스킵
+      const stored = await idbGet('photo_' + idx);
       if (!stored || !stored.base64) return null;
       return { type: 'photo', base64: stored.base64, filename: p.filename, plotNo, teamCode, weekCode, folderId };
     })
   );
   const movePhotoPayloadList = await Promise.all(
     Object.entries(movePhotoData).map(async ([idx, p]) => {
-      let stored = await idbGet('move_photo_' + idx);
-      if (!stored || !stored.base64) stored = await idbGet(idbMoveViewKey(plotNo, Number(idx)));
+      const stored = await idbGet('move_photo_' + idx);
       if (!stored || !stored.base64) return null;
       return { type: 'photo', base64: stored.base64, filename: p.filename, plotNo, teamCode, weekCode, folderId };
     })
@@ -3043,13 +2883,23 @@ async function saveData() {
   ];
 
   if (!scriptUrl || !navigator.onLine) {
-    // 오프라인 대기열에 추가
-    const q = getQueue();
-    payloads.forEach(p => q.push(p));
-    saveQueue(q);
-    updateSyncBadge();
+    // 오프라인 — survey_records에만 저장 (autoRetryUpload가 인터넷 연결 시 자동 처리)
     const msg = !scriptUrl ? '로컬 저장 완료 (Google 연동 미설정)' : '📵 오프라인 — 기기에 저장됨, 인터넷 연결 시 자동 업로드';
     showToast(msg, 'info');
+    // IDB 클리어 + 폼 초기화
+    for (let i = 0; i < 12; i++) idbDelete('photo_' + i).catch(() => {});
+    for (let i = 0; i < 4; i++) idbDelete('move_photo_' + i).catch(() => {});
+    _doReset();
+    const addrBox = document.getElementById('plot-address-box');
+    if (addrBox) addrBox.style.display = 'none';
+    const plotDisplay = document.getElementById('custom-plot-display');
+    if (plotDisplay) { plotDisplay.textContent = '포인트 선택'; plotDisplay.style.color = 'var(--text-sub)'; plotDisplay.style.fontWeight = ''; }
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-soil').classList.add('active');
+    document.querySelectorAll('.nav-btn')[0].classList.add('active');
+    currentTab = 'tab-soil';
+    _isUploading = false;
     btn.disabled = false; btn.textContent = '저장 및 업로드';
     return;
   }
@@ -3068,6 +2918,7 @@ async function saveData() {
     }
   } catch(e) {
     showToast('입지/임목 전송 실패 — 재시도해주세요', 'error');
+    _isUploading = false;
     btn.disabled = false; btn.textContent = '저장 및 업로드';
     return;
   }
@@ -3078,6 +2929,7 @@ async function saveData() {
   let photoSuccessCount = 0;
 
   for (const payload of photoPayloads) {
+    showToast(`📷 사진 업로드 중... ${photoSuccessCount + 1}/${photoPayloads.length}`, 'info');
     try {
       await sendToScript(scriptUrl, payload);
       // 1장 성공 시 즉시 uploaded:true 저장
@@ -3116,19 +2968,20 @@ async function saveData() {
 
   clearDraft();
 
-  // 저장 완료 후 IDB 사진 데이터 클리어 (다음 조사지에서 빈 슬롯 정확히 인식)
-  for (let i = 0; i < 12; i++) idbDelete('photo_' + i).catch(() => {});
-  for (let i = 0; i < 4; i++) idbDelete('move_photo_' + i).catch(() => {});
-
   if (failedPhotos.length === 0) {
     showToast('✓ Google Sheets 업로드 완료!', 'success');
     markPlotDoneInDropdown(plotNo); // 드롭다운 즉시 완료 표시
   }
 
+  // ZIP 다운로드 — IDB 클리어 전에 해야 photo_N 데이터 읽을 수 있음
   const hasNewPhotos = photoPayloads.filter(Boolean).length > 0;
   if (!isEditMode2 || hasNewPhotos) {
     await downloadPhotosAsZip(plotNo, isEditMode2);
   }
+
+  // 저장 완료 후 IDB 사진 데이터 클리어 (다음 조사지에서 빈 슬롯 정확히 인식)
+  for (let i = 0; i < 12; i++) idbDelete('photo_' + i).catch(() => {});
+  for (let i = 0; i < 4; i++) idbDelete('move_photo_' + i).catch(() => {});
 
   // 저장 완료 후 전체 초기화 (다음 조사 준비)
   _doReset();
@@ -3151,6 +3004,8 @@ async function saveData() {
 
   btn.disabled = false;
   btn.textContent = '저장 및 업로드';
+  _isUploading = false;
+  renderRecordsList();
 }
 
 // ====== Apps Script 전송 ======
@@ -3245,6 +3100,7 @@ function startGPS() {
 
 // ====== 이동 후 추가 사진 슬롯 ======
 const MOVE_PHOTO_SLOTS = ['N_기존현황', 'E_기존현황', 'S_기존현황', 'W_기존현황'];
+const MOVE_PHOTO_SLOTS_LABEL = ['북_기존현황', '동_기존현황', '남_기존현황', '서_기존현황'];
 let movePhotoData = {};
 
 function buildMovePhotoGrid() {
@@ -3256,13 +3112,13 @@ function buildMovePhotoGrid() {
     item.className = 'photo-item';
     const label = document.createElement('div');
     label.className = 'photo-label';
-    label.textContent = slot;
+    label.textContent = MOVE_PHOTO_SLOTS_LABEL[i];
     fitLabelFont(label);
     item.appendChild(label);
     const slotDiv = document.createElement('div');
     slotDiv.className = 'photo-slot landscape-slot';
     slotDiv.id = 'photo-move-slot-' + i;
-    slotDiv.onclick = () => openPhotoSheet('empty', 'move', i, MOVE_PHOTO_SLOTS[i]);
+    slotDiv.onclick = () => openPhotoSheet('empty', 'move', i, MOVE_PHOTO_SLOTS_LABEL[i]);
     const badge = document.createElement('div');
     badge.className = 'photo-dir-badge';
     badge.textContent = '가로촬영';
@@ -3351,7 +3207,7 @@ function handleMovePhoto(event, i) {
           img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
           slot.appendChild(img);
           slot.style.cursor = 'pointer';
-          slot.onclick = () => openPhotoSheet('filled', 'move', i, MOVE_PHOTO_SLOTS[i]);
+          slot.onclick = () => openPhotoSheet('filled', 'move', i, MOVE_PHOTO_SLOTS_LABEL[i]);
         }
         clearTimeout(_safetyTimerM);
         _photoProcessing = false;
@@ -3641,7 +3497,7 @@ function buildPhotoGrid() {
 
     const label = document.createElement('div');
     label.className = 'photo-label';
-    label.textContent = slot.replace('2','');
+    label.textContent = PHOTO_SLOTS_LABEL[i].replace('2','');
     fitLabelFont(label);
     item.appendChild(label);
 
@@ -3649,7 +3505,7 @@ function buildPhotoGrid() {
     const isPortraitSlot = ['전토심','토양단면'].includes(PHOTO_SLOTS[i]);
     slotDiv.className = 'photo-slot ' + (isPortraitSlot ? 'portrait-slot' : 'landscape-slot');
     slotDiv.id = 'photo-slot-' + i;
-    slotDiv.onclick = () => openPhotoSheet('empty', 'photo', i, PHOTO_SLOTS[i]);
+    slotDiv.onclick = () => openPhotoSheet('empty', 'photo', i, PHOTO_SLOTS_LABEL[i]);
 
     // 방향 배지
     const badge = document.createElement('div');
@@ -3893,7 +3749,7 @@ function deleteMovePhotoSlot(i) {
     slot.className = 'photo-slot landscape-slot';
     slot.innerHTML = '';
     slot.style.cursor = 'pointer';
-    slot.onclick = () => openPhotoSheet('empty', 'move', i, MOVE_PHOTO_SLOTS[i]);
+    slot.onclick = () => openPhotoSheet('empty', 'move', i, MOVE_PHOTO_SLOTS_LABEL[i]);
     const badge = document.createElement('div');
     badge.className = 'photo-dir-badge';
     badge.textContent = '가로촬영';
@@ -4012,7 +3868,7 @@ function handlePhoto(event, idx) {
         nameBar.textContent = filename + ' (' + kb + 'KB)';
         slot.appendChild(nameBar);
         slot.style.cursor = 'pointer';
-        slot.onclick = () => openPhotoSheet('filled', 'photo', idx, PHOTO_SLOTS[idx]);
+        slot.onclick = () => openPhotoSheet('filled', 'photo', idx, PHOTO_SLOTS_LABEL[idx]);
         showToast('사진 추가됨: ' + PHOTO_SLOTS[idx] + ' (' + kb + 'KB)', 'success');
         clearTimeout(_safetyTimer);
         _photoProcessing = false;
@@ -4045,7 +3901,7 @@ function deletePhoto(idx) {
   const slot = document.getElementById('photo-slot-' + idx);
   slot.innerHTML = '';
   slot.style.cursor = 'pointer';
-  slot.onclick = () => openPhotoSheet('empty', 'photo', idx, PHOTO_SLOTS[idx]);
+  slot.onclick = () => openPhotoSheet('empty', 'photo', idx, PHOTO_SLOTS_LABEL[idx]);
 
   const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
   svg.setAttribute('viewBox','0 0 24 24');
@@ -5190,6 +5046,10 @@ function renderRecordsList() {
 
 
 
+  // 업로드 중 재업로드 버튼 비활성화 여부
+  const reuploadDisabled = _isUploading ? 'disabled style="width:100%;padding:9px;margin-top:6px;background:#ccc;color:#888;border:1px solid #bbb;border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:not-allowed;"' : 'style="width:100%;padding:9px;margin-top:6px;background:#FDECEA;color:#C0392B;border:1px solid #F5B7B1;border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:pointer;"';
+  const reuploadLabel = _isUploading ? '업로드 중...' : '📤 재업로드';
+
   const list = records.slice().reverse();
 
   if (currentFilter === 'all') {
@@ -5211,6 +5071,9 @@ function renderRecordsList() {
             style="width:100%;padding:9px;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:pointer;">
             📋 이 데이터로 수정하기
           </button>
+          ${!allOk ? `<button id="reupload-btn-${r.id}" onclick="reuploadRecord(${r.id})" ${reuploadDisabled}>
+            ${reuploadLabel}
+          </button>` : ''}
         </div>
         <div style="padding:10px 14px;display:flex;flex-direction:column;gap:5px;">
           ${badge(r.soilUploaded, '입지·토양')}
@@ -5248,6 +5111,9 @@ function renderRecordsList() {
             style="width:100%;padding:9px;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:pointer;">
             📋 이 데이터로 수정하기
           </button>
+          ${!r.soilUploaded ? `<button id="reupload-btn-${r.id}" onclick="reuploadRecord(${r.id})" ${reuploadDisabled}>
+            ${reuploadLabel}
+          </button>` : ''}
         </div>
         <div style="padding:8px 14px;">
           <div style="line-height:1.8;">${soilPreview || '<span style="font-size:11px;color:var(--text-sub);">데이터 없음</span>'}</div>
@@ -5283,6 +5149,9 @@ function renderRecordsList() {
             style="width:100%;padding:9px;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:pointer;">
             📋 이 데이터로 수정하기
           </button>
+          ${(treeCount > 0 && !r.treeUploaded) ? `<button id="reupload-btn-${r.id}" onclick="reuploadRecord(${r.id})" ${reuploadDisabled}>
+            ${reuploadLabel}
+          </button>` : ''}
         </div>
         <div style="padding:8px 14px;">
           <div style="line-height:1.8;">${treePreview}</div>
@@ -5330,6 +5199,9 @@ function renderRecordsList() {
           ${total === 0
             ? '<span style="font-size:12px;padding:3px 10px;border-radius:20px;background:var(--gray-bg);color:var(--text-sub);">사진 없음</span>'
             : badge(allDone, '사진 ' + doneCnt + '/' + total)}
+          ${(total > 0 && !allDone) ? `<br><button id="reupload-btn-${r.id}" onclick="reuploadRecord(${r.id})" ${reuploadDisabled}>
+            ${reuploadLabel}
+          </button>` : ''}
         </div>
         <div style="padding:4px 14px 8px;text-align:right;">
           <span style="font-size:10px;color:var(--text-sub);">${r.savedAt}</span>
@@ -5340,6 +5212,84 @@ function renderRecordsList() {
 }
 
 
+
+// ====== 재업로드 ======
+async function reuploadRecord(id) {
+  const records = JSON.parse(localStorage.getItem('survey_records') || '[]');
+  const rec = records.find(r => r.id === id);
+  if (!rec) return;
+  if (_isUploading) { showToast('⏳ 업로드 진행 중입니다. 잠시 후 다시 시도해주세요', 'info'); return; }
+  if (!navigator.onLine) { showToast('📵 오프라인 상태입니다. 인터넷 연결 후 다시 시도해주세요', 'error'); return; }
+  const scriptUrl = localStorage.getItem('script_url') || MASTER_SCRIPT_URL;
+  if (!scriptUrl) { showToast('Google 연동 설정이 필요합니다', 'error'); return; }
+
+  const btn = document.getElementById('reupload-btn-' + id);
+  const saveBtn = document.getElementById('save-btn');
+  _isUploading = true;
+  if (btn) { btn.disabled = true; btn.textContent = '업로드 중...'; }
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '업로드 중...'; }
+  // 다른 재업로드 버튼도 비활성화
+  document.querySelectorAll('[id^="reupload-btn-"]').forEach(b => {
+    b.disabled = true; b.textContent = '업로드 중...';
+  });
+  showToast('📤 ' + rec.plotNo + ' 재업로드 중...', 'info');
+
+  const plotNo   = rec.plotNo;
+  const teamCode = (rec.soilRow && rec.soilRow[6]) || localStorage.getItem('team_code') || '';
+  const weekCode = (rec.soilRow && rec.soilRow[34]) || (window._plotMap && window._plotMap[plotNo]?.week) || '주차미정';
+  const folderId = localStorage.getItem('drive_folder') || MASTER_DRIVE_FOLDER;
+
+  try {
+    // 입지토양 미완료 시 재업로드
+    if (!rec.soilUploaded && rec.soilRow) {
+      await sendToScript(scriptUrl, { type: 'soil', row: rec.soilRow, overwrite: true });
+      rec.soilUploaded = true;
+    }
+    // 임목조사 미완료 시 재업로드
+    if (!rec.treeUploaded && rec.treeRows && rec.treeRows.length > 0) {
+      await sendToScript(scriptUrl, { type: 'tree', rows: rec.treeRows, overwrite: true });
+      rec.treeUploaded = true;
+    }
+    // 사진 미완료 시 재업로드
+    if (rec.photoList && rec.photoList.length > 0) {
+      const totalPhotos = rec.photoList.filter(p => !p.uploaded).length;
+      let donePhotos = 0;
+      for (const p of rec.photoList) {
+        if (p.uploaded) continue;
+        const isMove = p.filename.includes('기존현황');
+        const slotIdx = isMove
+          ? ['N_기존현황','E_기존현황','S_기존현황','W_기존현황'].findIndex(s => p.filename.includes('(' + s + ')'))
+          : PHOTO_SLOTS.findIndex(s => p.filename.includes('(' + s + ')'));
+        let base64 = null;
+        if (slotIdx >= 0) {
+          // photo_N 우선, 없으면 viewKey fallback
+          const photoKey = isMove ? 'move_photo_' + slotIdx : 'photo_' + slotIdx;
+          const idbKey = isMove ? idbMoveViewKey(plotNo, slotIdx) : idbViewKey(plotNo, slotIdx);
+          let stored = await idbGet(photoKey);
+          if (!stored || !stored.base64) stored = await idbGet(idbKey);
+          if (stored) base64 = stored.base64;
+        }
+        if (!base64) { console.warn('재업로드: IDB에 사진 없음 —', p.filename); continue; }
+        donePhotos++;
+        showToast(`📷 ${plotNo} 사진 재업로드 중... ${donePhotos}/${totalPhotos}`, 'info');
+        await sendToScript(scriptUrl, { type: 'photo', base64, filename: p.filename, plotNo, teamCode, weekCode, folderId });
+        p.uploaded = true;
+      }
+    }
+    // 결과 저장
+    const idx = records.findIndex(r => r.id === id);
+    if (idx !== -1) { records[idx] = rec; localStorage.setItem('survey_records', JSON.stringify(records)); }
+    showToast('✅ ' + rec.plotNo + ' 재업로드 완료!', 'success');
+    _isUploading = false;
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '저장 및 업로드'; }
+    renderRecordsList();
+  } catch(e) {
+    showToast('❌ 재업로드 실패 — 다시 시도해주세요', 'error');
+    _isUploading = false;
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '저장 및 업로드'; }
+    if (btn) { btn.disabled = false; btn.textContent = '📤 재업로드'; }
+  }
+}
 
 // ====== 레코드 삭제 ======
 function deleteRecord(id) {
