@@ -502,14 +502,6 @@ body.dark-mode #tab-tree table td:first-child {
           <input type="text" id="soil-plot-no" placeholder="예) A-001 (또는 설정탭에서 불러오기)" oninput="updatePhotoNames(); syncToTree()" onkeydown="nextFieldOnEnter(event,'soil-date')">
         </div>
         <!-- 주소 및 지도 연동 -->
-        <div id="plot-address-box" style="display:none;margin-top:-8px;margin-bottom:8px;padding:10px 12px;background:var(--green-light);border-radius:var(--radius-sm);border:1px solid var(--green-mid, #b2dfb2);">
-          <div style="font-size:13px;color:var(--text-sub);margin-bottom:6px;">📍 조사지 위치</div>
-          <div id="plot-address-text" style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px;line-height:1.5;">주소 불러오는 중...</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button type="button" onclick="copyPlotAddress()" style="flex:1;min-width:80px;padding:8px 10px;background:var(--gray-bg);border:1px solid var(--gray-border);border-radius:var(--radius-sm);font-size:13px;font-weight:600;color:var(--text);cursor:pointer;">📋 주소복사</button>
-            <button type="button" onclick="openKakaoMap()" style="flex:1;min-width:80px;padding:8px 10px;background:#FEE500;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:700;color:#3C1E1E;cursor:pointer;">🗺 카카오맵</button>
-          </div>
-        </div>
         <div class="field">
           <label>조사지 이동 필요성</label>
           <div style="display:flex;gap:20px;padding:8px 0;">
@@ -2890,8 +2882,6 @@ async function saveData() {
     for (let i = 0; i < 12; i++) idbDelete('photo_' + i).catch(() => {});
     for (let i = 0; i < 4; i++) idbDelete('move_photo_' + i).catch(() => {});
     _doReset();
-    const addrBox = document.getElementById('plot-address-box');
-    if (addrBox) addrBox.style.display = 'none';
     const plotDisplay = document.getElementById('custom-plot-display');
     if (plotDisplay) { plotDisplay.textContent = '포인트 선택'; plotDisplay.style.color = 'var(--text-sub)'; plotDisplay.style.fontWeight = ''; }
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
@@ -2986,8 +2976,6 @@ async function saveData() {
   // 저장 완료 후 전체 초기화 (다음 조사 준비)
   _doReset();
   // 조사지 위치 박스 숨기기
-  const addrBox = document.getElementById('plot-address-box');
-  if (addrBox) addrBox.style.display = 'none';
   // 커스텀 드롭다운 초기화
   const plotDisplay = document.getElementById('custom-plot-display');
   if (plotDisplay) {
@@ -4344,202 +4332,6 @@ function onPlotSelect(val) {
     syncToTree();
   }
 
-  // 주소박스 표시 (좌표 또는 주소가 있을 때)
-  if (val && window._plotMap && window._plotMap[val]) {
-    const p = window._plotMap[val];
-    showPlotAddressBox(p);
-  } else {
-    document.getElementById('plot-address-box').style.display = 'none';
-  }
-}
-
-// ====== 조사지 위치 (TM좌표 → 주소 + 지도 연동) ======
-
-// 현재 선택된 조사지 좌표/주소 전역 저장
-window._currentPlotCoord = null; // { lat, lng, address }
-
-// TM좌표(중부원점) → WGS84(위경도) 변환 후 역지오코딩
-// 카카오 SDK 동적 로드 (처음 필요할 때만 한 번)
-let _kakaoSdkLoading = false;
-let _kakaoSdkLoaded  = false;
-function loadKakaoSdk() {
-  return new Promise((resolve, reject) => {
-    if (_kakaoSdkLoaded && typeof kakao !== 'undefined') { resolve(); return; }
-    if (_kakaoSdkLoading) {
-      // 이미 로딩 중이면 완료 대기
-      const wait = setInterval(() => {
-        if (_kakaoSdkLoaded) { clearInterval(wait); resolve(); }
-      }, 100);
-      return;
-    }
-    _kakaoSdkLoading = true;
-    const s = document.createElement('script');
-    s.type = 'text/javascript';
-    s.src  = '//dapi.kakao.com/v2/maps/sdk.js?appkey=aed708ba5491c8e5d366f37d2fb99dd4&libraries=services&autoload=false';
-    s.onload = () => {
-      kakao.maps.load(() => { _kakaoSdkLoaded = true; _kakaoSdkLoading = false; resolve(); });
-    };
-    s.onerror = () => { _kakaoSdkLoading = false; reject(new Error('카카오 SDK 로드 실패')); };
-    document.head.appendChild(s);
-  });
-}
-
-async function showPlotAddressBox(plotData) {
-  const box    = document.getElementById('plot-address-box');
-  const addrEl = document.getElementById('plot-address-text');
-  if (!box || !addrEl) return;
-
-  // 좌표도 주소도 없으면 박스 숨김
-  if ((!plotData.x || !plotData.y) && (!plotData.address || !plotData.address.trim())) {
-    box.style.display = 'none';
-    return;
-  }
-
-  box.style.display = 'block';
-
-  // 주소가 시트에 직접 있으면 SDK 없이 바로 표시
-  if (plotData.address && plotData.address.trim()) {
-    const addr = plotData.address.trim();
-    addrEl.textContent = addr;
-    window._currentPlotCoord = { lat: null, lng: null, address: addr, x: plotData.x, y: plotData.y };
-    // TM좌표도 있으면 SDK 로드 후 WGS84 변환 (지도 연동용)
-    if (plotData.x && plotData.y) {
-      loadKakaoSdk().then(() => {
-        tmToWgs84(plotData.x, plotData.y).then(wgs => {
-          if (wgs) { window._currentPlotCoord.lat = wgs.lat; window._currentPlotCoord.lng = wgs.lng; }
-        });
-      }).catch(() => {});
-    }
-    return;
-  }
-
-  // 주소 없고 TM좌표 있으면 SDK 로드 후 변환 + 역지오코딩
-  addrEl.textContent = '주소 변환 중...';
-  try {
-    await loadKakaoSdk();
-    const wgs = await tmToWgs84(plotData.x, plotData.y);
-    if (!wgs) { addrEl.textContent = '좌표 변환 실패'; return; }
-    const addr = await reverseGeocode(wgs.lat, wgs.lng);
-    addrEl.textContent = addr || '주소를 찾을 수 없습니다';
-    window._currentPlotCoord = { lat: wgs.lat, lng: wgs.lng, address: addr, x: plotData.x, y: plotData.y };
-  } catch(e) {
-    addrEl.textContent = '주소 변환 중 오류 발생';
-  }
-}
-
-// TM좌표(중부원점 GRS80) → WGS84 위경도 변환
-// 카카오 좌표변환 API 사용
-function tmToWgs84(tmX, tmY) {
-  return new Promise((resolve) => {
-    if (typeof kakao === 'undefined' || !kakao.maps || !kakao.maps.services) {
-      resolve(null); return;
-    }
-    const proj = kakao.maps.services.Coords;
-    const transcoord = new kakao.maps.services.Geocoder();
-    // TM중부 → WGS84
-    transcoord.transCoord(
-      parseFloat(tmX), parseFloat(tmY),
-      function(result, status) {
-        if (status === kakao.maps.services.Status.OK && result.length > 0) {
-          resolve({ lng: result[0].x, lat: result[0].y });
-        } else {
-          resolve(null);
-        }
-      },
-      { inputCoordSystem: kakao.maps.services.CoordSystem.TM,
-        outputCoordSystem: kakao.maps.services.CoordSystem.WGS84 }
-    );
-  });
-}
-
-// WGS84 위경도 → 주소 (카카오 역지오코딩)
-function reverseGeocode(lat, lng) {
-  return new Promise((resolve) => {
-    if (typeof kakao === 'undefined' || !kakao.maps || !kakao.maps.services) {
-      resolve(null); return;
-    }
-    const geocoder = new kakao.maps.services.Geocoder();
-    geocoder.coord2Address(lng, lat, function(result, status) {
-      if (status === kakao.maps.services.Status.OK && result.length > 0) {
-        const r = result[0];
-        // 도로명 우선, 없으면 지번
-        const addr = (r.road_address ? r.road_address.address_name : null)
-                   || (r.address ? r.address.address_name : null)
-                   || null;
-        resolve(addr);
-      } else {
-        resolve(null);
-      }
-    });
-  });
-}
-
-// 주소 복사
-function copyPlotAddress() {
-  const addrEl = document.getElementById('plot-address-text');
-  if (!addrEl || !addrEl.textContent || addrEl.textContent === '주소 불러오는 중...') return;
-  const addr = addrEl.textContent;
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(addr).then(() => showToast('주소가 복사되었습니다', 'success'));
-  } else {
-    const ta = document.createElement('textarea');
-    ta.value = addr; document.body.appendChild(ta);
-    ta.select(); document.execCommand('copy');
-    document.body.removeChild(ta);
-    showToast('주소가 복사되었습니다', 'success');
-  }
-}
-
-// 카카오맵 연동
-function openKakaoMap() {
-  const c = window._currentPlotCoord;
-  if (!c) { showToast('위치 정보가 없습니다', 'error'); return; }
-  const addr = c.address || '';
-  if (c.lat && c.lng) {
-    const url = `https://map.kakao.com/link/map/${encodeURIComponent(addr || '조사지')},${c.lat},${c.lng}`;
-    window.open(url, '_blank');
-  } else if (addr) {
-    const url = `https://map.kakao.com/link/search/${encodeURIComponent(addr)}`;
-    window.open(url, '_blank');
-  } else if (c.x && c.y) {
-    // 좌표 변환 아직 안 됐으면 SDK 로드 후 변환 시도
-    loadKakaoSdk().then(() => tmToWgs84(c.x, c.y)).then(wgs => {
-      if (wgs) {
-        window._currentPlotCoord.lat = wgs.lat;
-        window._currentPlotCoord.lng = wgs.lng;
-        const url = `https://map.kakao.com/link/map/조사지,${wgs.lat},${wgs.lng}`;
-        window.open(url, '_blank');
-      } else {
-        showToast('좌표 변환 실패', 'error');
-      }
-    }).catch(() => showToast('카카오 SDK 로드 실패', 'error'));
-  } else {
-    showToast('좌표 또는 주소가 필요합니다', 'error');
-  }
-}
-
-// 티맵 연동
-function openTmap() {
-  const c = window._currentPlotCoord;
-  if (!c) { showToast('위치 정보가 없습니다', 'error'); return; }
-  if (c.lat && c.lng) {
-    // 앱 딥링크 시도 → 실패시 웹으로 fallback
-    const appUrl = `tmap://route?goalx=${c.lng}&goaly=${c.lat}&goalname=${encodeURIComponent(c.address || '조사지')}`;
-    const webUrl = `https://tmap.life/v?goalx=${c.lng}&goaly=${c.lat}&goalname=${encodeURIComponent(c.address || '조사지')}`;
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    iframe.src = appUrl;
-    document.body.appendChild(iframe);
-    setTimeout(() => {
-      document.body.removeChild(iframe);
-      window.open(webUrl, '_blank');
-    }, 1500);
-  } else if (c.address) {
-    const webUrl = `https://tmap.life/v?goalname=${encodeURIComponent(c.address)}`;
-    window.open(webUrl, '_blank');
-  } else {
-    showToast('좌표 또는 주소가 필요합니다', 'error');
-  }
 }
 
 // ====== 구글시트에서 조사지 데이터 불러오기 ======
@@ -4995,8 +4787,6 @@ function _doReset() {
     document.getElementById('soil-weather').value = '맑음';
   }
   // 조사지 위치 박스 숨기기
-  const addrBoxReset = document.getElementById('plot-address-box');
-  if (addrBoxReset) addrBoxReset.style.display = 'none';
   // 커스텀 드롭다운 초기화
   const plotDisplayReset = document.getElementById('custom-plot-display');
   if (plotDisplayReset) {
