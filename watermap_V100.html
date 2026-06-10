@@ -474,11 +474,11 @@ body.dark-mode #tab-tree table td:first-child {
       <div class="row2">
         <div class="field" style="margin-bottom:0;">
           <label style="font-size:15px;font-weight:700;display:block;margin-bottom:6px;line-height:1.2;">유역명 <span style="color:var(--danger);font-size:15px;">*</span></label>
-          <input type="text" id="soil-basin" placeholder="유역명 입력" oninput="syncToTree()" onkeydown="nextFieldOnEnter(event,'soil-basin-code')">
+          <input type="text" id="soil-basin" placeholder="유역명 (자동입력)" readonly oninput="syncToTree()" onkeydown="nextFieldOnEnter(event,'soil-basin-code')" style="background:var(--gray-bg);color:var(--text-sub);cursor:not-allowed;">
         </div>
         <div class="field" style="margin-bottom:0;">
           <label style="font-size:15px;font-weight:700;display:block;margin-bottom:6px;line-height:1.2;">유역코드</label>
-          <input type="text" id="soil-basin-code" placeholder="코드 입력" oninput="syncToTree()" onkeydown="nextFieldOnEnter(event,'soil-plot-no')">
+          <input type="text" id="soil-basin-code" placeholder="코드 (자동입력)" readonly oninput="syncToTree()" onkeydown="nextFieldOnEnter(event,'soil-plot-no')" style="background:var(--gray-bg);color:var(--text-sub);cursor:not-allowed;">
         </div>
       </div>
       <div class="field">
@@ -1692,6 +1692,13 @@ function saveDraft() {
       if (el.name) draft['radio_' + el.name] = el.value;
     });
     // 사진 파일명 (base64는 IndexedDB에 이미 있음)
+    // 커스텀 드롭다운 표시 상태 저장
+    const plotDisplay = document.getElementById('custom-plot-display');
+    if (plotDisplay) {
+      draft._plotDisplayText   = plotDisplay.textContent;
+      draft._plotDisplayColor  = plotDisplay.style.color;
+      draft._plotDisplayWeight = plotDisplay.style.fontWeight;
+    }
     draft._photoKeys = Object.entries(photoData).map(([k, v]) => ({ k, filename: v.filename }));
     draft._movePhotoKeys = Object.entries(movePhotoData).map(([k, v]) => ({ k, filename: v.filename }));
     draft._savedAt = Date.now();
@@ -1735,6 +1742,14 @@ async function restoreDraft() {
     // 조사지이동 카드 토글
     toggleMovePhotoCard();
     syncToTree();
+
+    // 커스텀 드롭다운 표시 복원
+    const plotDisplay = document.getElementById('custom-plot-display');
+    if (plotDisplay && draft._plotDisplayText && draft._plotDisplayText !== '포인트 선택') {
+      plotDisplay.textContent      = draft._plotDisplayText;
+      plotDisplay.style.color      = draft._plotDisplayColor || '';
+      plotDisplay.style.fontWeight = draft._plotDisplayWeight || '';
+    }
 
     // 사진 썸네일 복원 (IndexedDB에서)
     if (draft._photoKeys) {
@@ -3174,7 +3189,7 @@ function handleMovePhoto(event, i) {
         if (ts) idbSet(idbMoveThumbKey(_plotNoForMoveThumb, i), { base64: ts.split(',')[1], filename }).catch(console.error);
         if (vs) idbSet(idbMoveViewKey(_plotNoForMoveThumb, i),  { base64: vs.split(',')[1], filename }).catch(console.error);
       });
-      scheduleDraftSave();
+      saveDraft(); // 사진 저장 직후 즉시 draft 저장
 
       // 썸네일 작은 크기로 별도 생성
       const thumbCanvas = document.createElement('canvas');
@@ -3750,7 +3765,7 @@ function deleteMovePhotoSlot(i) {
     txt.textContent = '탭하여 추가';
     slot.appendChild(txt);
   }
-  scheduleDraftSave();
+  saveDraft(); // 사진 삭제 직후 즉시 draft 저장
   showToast('이동사진 삭제됨', 'info');
 }
 
@@ -3827,7 +3842,7 @@ function handlePhoto(event, idx) {
       photoData[idx] = { filename };
       // 원본(0.75): 현재 작업 조사지용 — 업로드/ZIP에 사용
       idbSet('photo_' + idx, { base64, filename }).catch(console.error);
-      scheduleDraftSave();
+      saveDraft(); // 사진 저장 직후 즉시 draft 저장
 
       // 썸네일: 조사지번호 포함 키로 영구 저장 (복원용)
       const _plotNoForThumb = plotNo;
@@ -4752,8 +4767,11 @@ function getTreeRows() {
 function _doReset() {
   // 설정탭 입력값 제외하고 초기화
   const KEEP_IDS = ['setting-script-url', 'setting-drive-folder', 'setting-team-code', 'setting-team-code-top'];
+  const RESET_READONLY = ['soil-basin', 'soil-basin-code']; // readonly지만 초기화 필요한 항목
   document.querySelectorAll('input[type=text], input[type=number], textarea').forEach(el => {
-    if (!el.readOnly && !KEEP_IDS.includes(el.id)) el.value = '';
+    if (KEEP_IDS.includes(el.id)) return;
+    if (el.readOnly && !RESET_READONLY.includes(el.id)) return;
+    el.value = '';
   });
   document.querySelectorAll('select').forEach(el => {
     if (!KEEP_IDS.includes(el.id)) el.selectedIndex = 0;
@@ -4857,10 +4875,6 @@ function renderRecordsList() {
           <div style="font-size:12px;color:var(--text-sub);margin-top:2px;">${r.basin || '유역 미입력'} · ${r.date || '날짜 미입력'}</div>
         </div>
         <div style="padding:8px 14px 0;">
-          <button onclick="loadRecord(${r.id})"
-            style="width:100%;padding:9px;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:pointer;">
-            📋 이 데이터로 수정하기
-          </button>
           ${!allOk ? `<button id="reupload-btn-${r.id}" onclick="reuploadRecord(${r.id})" ${reuploadDisabled}>
             ${reuploadLabel}
           </button>` : ''}
@@ -4897,10 +4911,6 @@ function renderRecordsList() {
           <div style="font-size:12px;color:var(--text-sub);margin-top:2px;">${r.basin || '유역 미입력'} · ${r.date || '날짜 미입력'}</div>
         </div>
         <div style="padding:8px 14px 0;">
-          <button onclick="loadRecord(${r.id})"
-            style="width:100%;padding:9px;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:pointer;">
-            📋 이 데이터로 수정하기
-          </button>
           ${!r.soilUploaded ? `<button id="reupload-btn-${r.id}" onclick="reuploadRecord(${r.id})" ${reuploadDisabled}>
             ${reuploadLabel}
           </button>` : ''}
@@ -4935,10 +4945,6 @@ function renderRecordsList() {
           <div style="font-size:12px;color:var(--text-sub);margin-top:2px;">${r.basin || '유역 미입력'} · ${r.date || '날짜 미입력'} · 총 ${treeCount}본</div>
         </div>
         <div style="padding:8px 14px 0;">
-          <button onclick="loadRecord(${r.id})"
-            style="width:100%;padding:9px;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:pointer;">
-            📋 이 데이터로 수정하기
-          </button>
           ${(treeCount > 0 && !r.treeUploaded) ? `<button id="reupload-btn-${r.id}" onclick="reuploadRecord(${r.id})" ${reuploadDisabled}>
             ${reuploadLabel}
           </button>` : ''}
