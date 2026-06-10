@@ -2500,19 +2500,17 @@ async function autoRetryUpload() {
         for (const p of rec.photoList) {
           if (p.uploaded) continue;
 
-          // IDB에서 사진 데이터 찾기 — photo_N 우선, 없으면 viewKey fallback
+          // IDB에서 사진 데이터 찾기 — photo_N(원본 1600×1200)만 사용
           let base64 = null;
           const normalIdx = NORMAL_SLOTS.findIndex(s => p.filename.includes('(' + s + ')'));
           if (normalIdx !== -1) {
-            let stored = await idbGet('photo_' + normalIdx);
-            if (!stored || !stored.base64) stored = await idbGet(idbViewKey(plotNo, normalIdx));
+            const stored = await idbGet('photo_' + normalIdx);
             if (stored && stored.base64) base64 = stored.base64;
           }
           if (!base64) {
             const moveIdx = MOVE_SLOTS.findIndex(s => p.filename.includes('(' + s + ')'));
             if (moveIdx !== -1) {
-              let stored = await idbGet('move_photo_' + moveIdx);
-              if (!stored || !stored.base64) stored = await idbGet(idbMoveViewKey(plotNo, moveIdx));
+              const stored = await idbGet('move_photo_' + moveIdx);
               if (stored && stored.base64) base64 = stored.base64;
             }
           }
@@ -5058,14 +5056,16 @@ async function reuploadRecord(id) {
           : PHOTO_SLOTS.findIndex(s => p.filename.includes('(' + s + ')'));
         let base64 = null;
         if (slotIdx >= 0) {
-          // photo_N 우선, 없으면 viewKey fallback
+          // photo_N(원본 1600×1200)만 사용 — viewKey(400×300 썸네일)는 사용 안 함
           const photoKey = isMove ? 'move_photo_' + slotIdx : 'photo_' + slotIdx;
-          const idbKey = isMove ? idbMoveViewKey(plotNo, slotIdx) : idbViewKey(plotNo, slotIdx);
-          let stored = await idbGet(photoKey);
-          if (!stored || !stored.base64) stored = await idbGet(idbKey);
-          if (stored) base64 = stored.base64;
+          const stored = await idbGet(photoKey);
+          if (stored && stored.base64) base64 = stored.base64;
         }
-        if (!base64) { console.warn('재업로드: IDB에 사진 없음 —', p.filename); continue; }
+        if (!base64) {
+          console.warn('재업로드: 원본 사진 없음 —', p.filename);
+          failedPhotoCount = (failedPhotoCount || 0) + 1;
+          continue;
+        }
         donePhotos++;
         showToast(`📷 ${plotNo} 사진 재업로드 중... ${donePhotos}/${totalPhotos}`, 'info');
         await sendToScript(scriptUrl, { type: 'photo', base64, filename: p.filename, plotNo, teamCode, weekCode, folderId });
