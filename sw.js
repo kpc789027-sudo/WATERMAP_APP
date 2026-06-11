@@ -1,6 +1,6 @@
 // 물지도 전자야장 Service Worker
-// 새 버전 배포 시 CACHE_NAME 숫자 올릴 것 (예: watermap-v101)
-const CACHE_NAME = 'watermap-v100';
+// 새 버전 배포 시 CACHE_NAME 숫자 올릴 것 (예: watermap_V101)
+const CACHE_NAME = 'watermap_V100';
 
 const PRECACHE_URLS = [
   './watermap_V100.html',
