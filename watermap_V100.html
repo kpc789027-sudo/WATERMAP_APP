@@ -1677,7 +1677,11 @@ function makeViewThumb(base64, isPortrait) {
 }
 
 // ====== 작업 초안 자동저장/복원 (Draft) ======
-const DRAFT_KEY = 'survey_draft';
+const DRAFT_KEY_PREFIX = 'survey_draft_';
+function getDraftKey(plotNo) {
+  const pn = plotNo || document.getElementById('soil-plot-no')?.value || '';
+  return DRAFT_KEY_PREFIX + (pn || '_default');
+}
 
 // 폼 전체 값을 draft로 저장
 function saveDraft() {
@@ -1702,14 +1706,15 @@ function saveDraft() {
     draft._photoKeys = Object.entries(photoData).map(([k, v]) => ({ k, filename: v.filename }));
     draft._movePhotoKeys = Object.entries(movePhotoData).map(([k, v]) => ({ k, filename: v.filename }));
     draft._savedAt = Date.now();
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    localStorage.setItem(getDraftKey(), JSON.stringify(draft));
   } catch(e) { console.warn('draft 저장 실패', e); }
 }
 
 // draft 복원
-async function restoreDraft() {
+async function restoreDraft(plotNo) {
   try {
-    const raw = localStorage.getItem(DRAFT_KEY);
+    const key = getDraftKey(plotNo);
+    const raw = localStorage.getItem(key);
     if (!raw) return false;
     const draft = JSON.parse(raw);
     if (!draft._savedAt) return false;
@@ -1898,7 +1903,7 @@ async function downloadPhotosAsZip(plotNo, onlyNew = false) {
 
 // draft 삭제
 function clearDraft() {
-  localStorage.removeItem(DRAFT_KEY);
+  localStorage.removeItem(getDraftKey());
 }
 
 // ====== 저장된 조사지 불러오기 ======
@@ -2070,7 +2075,20 @@ document.addEventListener('DOMContentLoaded', () => {
   loadDefaults();
   initFieldClearListeners();
   // draft 복원 (앱 재시작 시 이전 작업 상태 복원)
-  restoreDraft().then(restored => {
+  // 앱 시작 시 가장 최근 draft 복원
+  const allDraftKeys = Object.keys(localStorage).filter(k => k.startsWith(DRAFT_KEY_PREFIX));
+  let latestKey = null, latestTime = 0;
+  allDraftKeys.forEach(k => {
+    try {
+      const d = JSON.parse(localStorage.getItem(k));
+      if (d && d._savedAt && d._savedAt > latestTime) {
+        latestTime = d._savedAt;
+        latestKey = k;
+      }
+    } catch(e) {}
+  });
+  const latestPlotNo = latestKey ? latestKey.replace(DRAFT_KEY_PREFIX, '') : null;
+  restoreDraft(latestPlotNo).then(restored => {
     if (restored) showToast('이전 작업 내용이 복원되었습니다', 'info');
     // 복원 후 미완료 업로드 자동 처리
     setTimeout(() => autoRetryUpload(), 2000);
@@ -4333,16 +4351,11 @@ function onPlotSelect(val) {
   const records = JSON.parse(localStorage.getItem('survey_records') || '[]');
   const existing = val ? records.find(r => r.plotNo === val) : null;
 
-  // movePhotoData 임시 보존 (_doReset이 초기화하므로)
-  const savedMovePhotoData = Object.assign({}, movePhotoData);
+  // 현재 작업 중인 draft를 현재 조사지번호로 저장 (번호 변경 전)
+  saveDraft();
 
   // 전체 초기화
   _doReset();
-
-  // movePhotoData 복원 (조사지번호 변경해도 이동사진 유지)
-  if (Object.keys(savedMovePhotoData).length > 0) {
-    movePhotoData = savedMovePhotoData;
-  }
 
   const inp = document.getElementById('soil-plot-no');
   inp.value = val;
@@ -4374,13 +4387,16 @@ function onPlotSelect(val) {
 
   // 저장목록에 해당 조사지번호 데이터가 있으면 복원
   if (existing) {
-    // loadRecord 내부에서 탭이동/토스트가 있으므로
-    // 조용히 복원하는 핵심 로직만 직접 실행
     _restoreRecordData(existing);
     showToast('[' + val + '] 이전 데이터를 불러왔습니다', 'info');
   } else {
-    updatePhotoNames();
-    syncToTree();
+    // 저장완료 데이터 없으면 해당 조사지번호 draft 복원 시도
+    restoreDraft(val).then(restored => {
+      if (!restored) {
+        updatePhotoNames();
+        syncToTree();
+      }
+    });
   }
 
 }

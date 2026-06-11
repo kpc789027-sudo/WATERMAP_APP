@@ -1,5 +1,5 @@
 // 물지도 전자야장 Service Worker
-// CACHE_NAME을 배포할 때마다 증가시켜 캐시 갱신
+// 새 버전 배포 시 CACHE_NAME 숫자 올릴 것 (예: watermap-v101)
 const CACHE_NAME = 'watermap-v100';
 
 const PRECACHE_URLS = [
@@ -10,30 +10,28 @@ const PRECACHE_URLS = [
 // 설치: 핵심 파일 선캐시
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(PRECACHE_URLS);
-    }).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(PRECACHE_URLS))
+      .then(() => self.skipWaiting())
   );
 });
 
-// 활성화: 이전 캐시 삭제
+// 활성화: 이전 버전 캐시 삭제
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keyList =>
+    caches.keys().then(keys =>
       Promise.all(
-        keyList
-          .filter(key => key !== CACHE_NAME)
-          .map(key => caches.delete(key))
+        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
       )
     ).then(() => self.clients.claim())
   );
 });
 
-// 요청 처리: Cache-First (앱 파일) / Network-First (API)
+// 요청 처리
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
-  // Google Apps Script / Sheets / Drive API → 항상 네트워크
+  // Google API (Apps Script / Sheets / Drive) → 항상 네트워크
   if (
     url.hostname.includes('script.google.com') ||
     url.hostname.includes('sheets.googleapis.com') ||
@@ -48,21 +46,13 @@ self.addEventListener('fetch', event => {
     caches.match(event.request).then(cached => {
       if (cached) return cached;
       return fetch(event.request).then(response => {
-        // 정상 응답만 캐시에 저장
-        if (
-          response &&
-          response.status === 200 &&
-          response.type !== 'opaque'
-        ) {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then(cache => {
-            cache.put(event.request, responseClone);
-          });
+        if (response && response.status === 200 && response.type !== 'opaque') {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
         return response;
       });
     }).catch(() => {
-      // 오프라인 + 캐시 없음 → HTML 폴백
       if (event.request.destination === 'document') {
         return caches.match('./watermap_V100.html');
       }
