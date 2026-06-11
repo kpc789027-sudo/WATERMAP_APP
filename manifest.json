@@ -5,8 +5,8 @@
   "start_url": "./watermap_V100.html",
   "display": "standalone",
   "orientation": "portrait",
+  "background_color": "#0A5C45",
   "theme_color": "#0A5C45",
-  "background_color": "#ffffff",
   "icons": [
     {
       "src": "icon-192.png",

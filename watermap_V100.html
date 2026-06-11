@@ -1825,7 +1825,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ====== 드롭다운 자동 스크롤 ======
 function scrollSelectTo(sel, targetVal) {
-  if (sel.value) return; // 이미 값 선택된 경우 스크롤 안 함
+  // 사용자가 직접 선택한 경우 스크롤 안 함 (- 선택 포함)
+  if (sel.dataset.userSelected === 'true') return;
+  if (sel.value) return;
   for (let i = 0; i < sel.options.length; i++) {
     if (String(sel.options[i].value) === String(targetVal) ||
         String(sel.options[i].text)  === String(targetVal)) {
@@ -2500,17 +2502,19 @@ async function autoRetryUpload() {
         for (const p of rec.photoList) {
           if (p.uploaded) continue;
 
-          // IDB에서 사진 데이터 찾기 — photo_N(원본 1600×1200)만 사용
+          // IDB에서 사진 데이터 찾기 — photo_N 우선, 없으면 viewKey fallback
           let base64 = null;
           const normalIdx = NORMAL_SLOTS.findIndex(s => p.filename.includes('(' + s + ')'));
           if (normalIdx !== -1) {
-            const stored = await idbGet('photo_' + normalIdx);
+            let stored = await idbGet('photo_' + normalIdx);
+            if (!stored || !stored.base64) stored = await idbGet(idbViewKey(plotNo, normalIdx));
             if (stored && stored.base64) base64 = stored.base64;
           }
           if (!base64) {
             const moveIdx = MOVE_SLOTS.findIndex(s => p.filename.includes('(' + s + ')'));
             if (moveIdx !== -1) {
-              const stored = await idbGet('move_photo_' + moveIdx);
+              let stored = await idbGet('move_photo_' + moveIdx);
+              if (!stored || !stored.base64) stored = await idbGet(idbMoveViewKey(plotNo, moveIdx));
               if (stored && stored.base64) base64 = stored.base64;
             }
           }
@@ -2814,6 +2818,12 @@ async function saveData() {
   const existingIdx = records.findIndex(r => r.plotNo === plotNo);
   const existingRec2 = existingIdx !== -1 ? records[existingIdx] : null;
 
+  // 수정 모드: X, Y 좌표는 기존 현장 좌표 유지 (숙소에서 수정 시 좌표 변경 방지)
+  if (existingRec2 && existingRec2.soilRow) {
+    soilRow[8] = existingRec2.soilRow[8]; // X좌표
+    soilRow[9] = existingRec2.soilRow[9]; // Y좌표
+  }
+
   // 수정 모드: 기존에 업로드된 사진 목록 유지, 새로 추가된 사진만 uploaded:false
   let photoList;
   if (existingRec2 && existingRec2.photoList && existingRec2.photoList.length > 0) {
@@ -2950,13 +2960,9 @@ async function saveData() {
     }
   }
 
-  // 실패한 사진만 대기열에 추가
+  // 실패한 사진 처리
   if (failedPhotos.length > 0) {
-    const q = getQueue();
-    failedPhotos.forEach(p => q.push(p));
-    saveQueue(q);
-    updateSyncBadge();
-    showToast('⚠️ 사진 ' + photoSuccessCount + '/' + photoPayloads.length + '장 완료 — 나머지 ' + failedPhotos.length + '장은 다시 저장 및 업로드 해주세요', 'error');
+    showToast(`⚠️ 사진 ${photoSuccessCount}/${photoPayloads.length}장 완료 — 나머지 ${failedPhotos.length}장은 재업로드 버튼을 눌러주세요`, 'error');
   }
 
   // 전체 완료 상태 업데이트
@@ -3135,11 +3141,33 @@ function buildMovePhotoGrid() {
     const input = document.createElement('input');
     input.type = 'file'; input.id = 'photo-input-move-' + i;
     input.accept = 'image/jpeg,image/png,image/jpg,image/webp';
-    // capture는 촬영 시에만 동적으로 추가
     input.style.display = 'none';
     input.addEventListener('change', e => handleMovePhoto(e, i));
     item.appendChild(input);
     grid.appendChild(item);
+
+    // 기존 movePhotoData에 사진이 있으면 슬롯 복원
+    if (movePhotoData[i]) {
+      idbGet('move_photo_' + i).then(stored => {
+        if (!stored || !stored.base64) return;
+        const plotNo = document.getElementById('soil-plot-no')?.value || '';
+        idbGet(idbMoveThumbKey(plotNo, i)).then(thumb => {
+          const src = thumb ? 'data:image/jpeg;base64,' + thumb.base64
+                            : 'data:image/jpeg;base64,' + stored.base64;
+          slotDiv.innerHTML = '';
+          const img = document.createElement('img');
+          img.src = src;
+          img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:4px;position:absolute;inset:0;';
+          const namDiv = document.createElement('div');
+          namDiv.className = 'photo-name';
+          namDiv.textContent = movePhotoData[i].filename || '';
+          slotDiv.appendChild(img);
+          slotDiv.appendChild(namDiv);
+          slotDiv.style.cursor = 'pointer';
+          slotDiv.onclick = () => openPhotoSheet('filled', 'move', i, MOVE_PHOTO_SLOTS_LABEL[i]);
+        });
+      });
+    }
   });
 }
 
@@ -3258,7 +3286,8 @@ function toggleMovePhotoCard(fromUserAction) {
     }
   } else {
     card.style.display = 'none';
-    movePhotoData = {};
+    // movePhotoData는 초기화하지 않음 — 다시 조사지이동 선택 시 사진 복원을 위해 유지
+    // (저장 완료 또는 초기화 버튼 시에만 클리어)
   }
 }
 
@@ -3461,6 +3490,7 @@ function buildTreeTable() {
     selHt.style.cssText = selStyle;
     selHt.innerHTML = htOpts;
     selHt.addEventListener('change', () => {
+      selHt.dataset.userSelected = 'true'; // 사용자가 직접 선택했음을 표시
       selHt.style.background = 'transparent';
       selHt.style.outline = '';
     });
@@ -4303,8 +4333,16 @@ function onPlotSelect(val) {
   const records = JSON.parse(localStorage.getItem('survey_records') || '[]');
   const existing = val ? records.find(r => r.plotNo === val) : null;
 
+  // movePhotoData 임시 보존 (_doReset이 초기화하므로)
+  const savedMovePhotoData = Object.assign({}, movePhotoData);
+
   // 전체 초기화
   _doReset();
+
+  // movePhotoData 복원 (조사지번호 변경해도 이동사진 유지)
+  if (Object.keys(savedMovePhotoData).length > 0) {
+    movePhotoData = savedMovePhotoData;
+  }
 
   const inp = document.getElementById('soil-plot-no');
   inp.value = val;
@@ -5048,6 +5086,7 @@ async function reuploadRecord(id) {
     if (rec.photoList && rec.photoList.length > 0) {
       const totalPhotos = rec.photoList.filter(p => !p.uploaded).length;
       let donePhotos = 0;
+      let failedPhotos = 0;
       for (const p of rec.photoList) {
         if (p.uploaded) continue;
         const isMove = p.filename.includes('기존현황');
@@ -5056,20 +5095,34 @@ async function reuploadRecord(id) {
           : PHOTO_SLOTS.findIndex(s => p.filename.includes('(' + s + ')'));
         let base64 = null;
         if (slotIdx >= 0) {
-          // photo_N(원본 1600×1200)만 사용 — viewKey(400×300 썸네일)는 사용 안 함
           const photoKey = isMove ? 'move_photo_' + slotIdx : 'photo_' + slotIdx;
-          const stored = await idbGet(photoKey);
-          if (stored && stored.base64) base64 = stored.base64;
+          const idbKey = isMove ? idbMoveViewKey(plotNo, slotIdx) : idbViewKey(plotNo, slotIdx);
+          let stored = await idbGet(photoKey);
+          if (!stored || !stored.base64) stored = await idbGet(idbKey);
+          if (stored) base64 = stored.base64;
         }
-        if (!base64) {
-          console.warn('재업로드: 원본 사진 없음 —', p.filename);
-          failedPhotoCount = (failedPhotoCount || 0) + 1;
-          continue;
-        }
+        if (!base64) { console.warn('재업로드: IDB에 사진 없음 —', p.filename); failedPhotos++; continue; }
         donePhotos++;
         showToast(`📷 ${plotNo} 사진 재업로드 중... ${donePhotos}/${totalPhotos}`, 'info');
-        await sendToScript(scriptUrl, { type: 'photo', base64, filename: p.filename, plotNo, teamCode, weekCode, folderId });
-        p.uploaded = true;
+        try {
+          await sendToScript(scriptUrl, { type: 'photo', base64, filename: p.filename, plotNo, teamCode, weekCode, folderId });
+          p.uploaded = true;
+          // 1장 성공 시 즉시 저장
+          const recsP = JSON.parse(localStorage.getItem('survey_records') || '[]');
+          const pIdx = recsP.findIndex(r => r.id === id);
+          if (pIdx !== -1) { recsP[pIdx] = rec; localStorage.setItem('survey_records', JSON.stringify(recsP)); }
+        } catch(photoErr) {
+          failedPhotos++;
+          console.warn('사진 업로드 실패:', p.filename, photoErr);
+        }
+      }
+      if (failedPhotos > 0) {
+        showToast(`⚠️ ${plotNo} 사진 ${failedPhotos}장 실패 — 재업로드 버튼을 다시 눌러주세요`, 'error');
+        _isUploading = false;
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '저장 및 업로드'; }
+        if (btn) { btn.disabled = false; btn.textContent = '📤 재업로드'; }
+        renderRecordsList();
+        return;
       }
     }
     // 결과 저장
