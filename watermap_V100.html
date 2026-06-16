@@ -5117,7 +5117,8 @@ async function reuploadRecord(id) {
         // 드라이브에 이미 파일이 있는지 먼저 확인
         try {
           const checkResult = await sendToScriptSafe(scriptUrl, {
-            type: 'checkFile', filename: p.filename, folderId
+            type: 'photoCheck', filename: p.filename, folderId,
+            plotNo, teamCode, weekCode
           });
           if (checkResult && checkResult.exists) {
             // 드라이브에 이미 있으면 완료 처리
