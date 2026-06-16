@@ -5113,6 +5113,22 @@ async function reuploadRecord(id) {
         const slotIdx = isMove
           ? ['N_기존현황','E_기존현황','S_기존현황','W_기존현황'].findIndex(s => p.filename.includes('(' + s + ')'))
           : PHOTO_SLOTS.findIndex(s => p.filename.includes('(' + s + ')'));
+
+        // 드라이브에 이미 파일이 있는지 먼저 확인
+        try {
+          const checkResult = await sendToScriptSafe(scriptUrl, {
+            type: 'checkFile', filename: p.filename, folderId
+          });
+          if (checkResult && checkResult.exists) {
+            // 드라이브에 이미 있으면 완료 처리
+            p.uploaded = true;
+            const recsP = JSON.parse(localStorage.getItem('survey_records') || '[]');
+            const pIdx = recsP.findIndex(r => r.id === id);
+            if (pIdx !== -1) { recsP[pIdx] = rec; localStorage.setItem('survey_records', JSON.stringify(recsP)); }
+            continue;
+          }
+        } catch(e) { /* 확인 실패 시 업로드 시도 */ }
+
         let base64 = null;
         if (slotIdx >= 0) {
           // photo_N(원본 1600×1200)만 사용 — viewKey(400×300) 사용 안 함
