@@ -680,6 +680,7 @@ body.dark-mode #tab-tree table td:first-child {
       </div>
 
       <div style="font-size:13px;font-weight:700;color:var(--green-dark);margin:14px 0 8px;padding-bottom:4px;border-bottom:1.5px solid var(--green-light);">토양특성</div>
+      <!-- 1행: 풍화정도 / 여백 -->
       <div class="row2">
         <div class="field">
           <label>풍화정도</label>
@@ -688,6 +689,10 @@ body.dark-mode #tab-tree table td:first-child {
             <option>상</option><option>중</option><option>하</option>
           </select>
         </div>
+        <div class="field"></div>
+      </div>
+      <!-- 2행: A층 건습도 / B층 건습도 -->
+      <div class="row2">
         <div class="field">
           <label>A층 건습도</label>
           <select id="soil-moist-a" onchange="focusNext('soil-moist-b')">
@@ -695,8 +700,6 @@ body.dark-mode #tab-tree table td:first-child {
             <option>건조</option><option>약건</option><option>적윤</option><option>약습</option><option>습윤</option>
           </select>
         </div>
-      </div>
-      <div class="row2">
         <div class="field">
           <label>B층 건습도</label>
           <select id="soil-moist-b" onchange="focusNext('soil-gravel-a')">
@@ -704,26 +707,31 @@ body.dark-mode #tab-tree table td:first-child {
             <option>건조</option><option>약건</option><option>적윤</option><option>약습</option><option>습윤</option>
           </select>
         </div>
+      </div>
+      <!-- 3행: A층 자갈함량 / B층 자갈함량 -->
+      <div class="row2">
         <div class="field">
           <label>A층 자갈함량 (%)</label>
           <select id="soil-gravel-a" onchange="focusNext('soil-gravel-b')"><option value="">선택</option></select>
         </div>
-      </div>
-      <div class="row2">
         <div class="field">
           <label>B층 자갈함량 (%)</label>
           <select id="soil-gravel-b" onchange="focusNext('soil-density-a')"><option value="">선택</option></select>
         </div>
+      </div>
+      <!-- 4행: A층 견밀도 / B층 견밀도 -->
+      <div class="row2">
         <div class="field">
           <label>A층 견밀도 (mm)</label>
           <select id="soil-density-a" onchange="focusNext('soil-density-b')"><option value="">선택</option></select>
         </div>
-      </div>
-      <div class="row2">
         <div class="field">
           <label>B층 견밀도 (mm)</label>
           <select id="soil-density-b" onchange="focusNext('soil-type')"><option value="">선택</option></select>
         </div>
+      </div>
+      <!-- 5행: 토양형 / 여백 -->
+      <div class="row2">
         <div class="field">
           <label>토양형</label>
           <select id="soil-type" onchange="focusNext('soil-100cc-10')">
@@ -741,6 +749,7 @@ body.dark-mode #tab-tree table td:first-child {
             <option>Im</option><option>Li</option>
           </select>
         </div>
+        <div class="field"></div>
       </div>
 
     </div>
