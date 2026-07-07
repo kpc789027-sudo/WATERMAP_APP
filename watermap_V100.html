@@ -2426,6 +2426,10 @@ window.addEventListener('offline', updateOnlineStatus);
 
 // 포그라운드 복귀 시 완료 목록 자동 갱신
 document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    // 백그라운드로 전환 시 즉시 draft 저장 (메모리 부족으로 탭 종료 대비)
+    saveDraft();
+  }
   if (document.visibilityState === 'visible' && navigator.onLine) {
     syncCompletedPlots();
   }
@@ -4362,6 +4366,13 @@ function onPlotSelect(val) {
 
   // 현재 작업 중인 draft를 현재 조사지번호로 저장 (번호 변경 전)
   saveDraft();
+
+  // 다른 조사지번호 선택 시 photo_N IDB 클리어 (이전 조사 사진 섞임 방지)
+  const currentPlotNo = document.getElementById('soil-plot-no')?.value || '';
+  if (val && val !== currentPlotNo) {
+    for (let i = 0; i < 12; i++) idbDelete('photo_' + i).catch(() => {});
+    for (let i = 0; i < 4; i++) idbDelete('move_photo_' + i).catch(() => {});
+  }
 
   // 전체 초기화
   _doReset();
