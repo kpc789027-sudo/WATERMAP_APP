@@ -2929,9 +2929,7 @@ async function saveData() {
     // 오프라인 — survey_records에만 저장 (autoRetryUpload가 인터넷 연결 시 자동 처리)
     const msg = !scriptUrl ? '로컬 저장 완료 (Google 연동 미설정)' : '📵 오프라인 — 기기에 저장됨, 인터넷 연결 시 자동 업로드';
     showToast(msg, 'info');
-    // IDB 클리어 + 폼 초기화
-    for (let i = 0; i < 12; i++) idbDelete('photo_' + i).catch(() => {});
-    for (let i = 0; i < 4; i++) idbDelete('move_photo_' + i).catch(() => {});
+    // 오프라인 시 photo_N 클리어 안 함 — 인터넷 연결 후 자동업로드 시 원본으로 업로드하기 위해 유지
     _doReset();
     const plotDisplay = document.getElementById('custom-plot-display');
     if (plotDisplay) { plotDisplay.textContent = '포인트 선택'; plotDisplay.style.color = 'var(--text-sub)'; plotDisplay.style.fontWeight = ''; }
