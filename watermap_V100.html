@@ -2814,13 +2814,13 @@ async function saveData() {
     return;
   }
 
-  if (filledCount > 0 && heightCount < 3) {
+  if (filledCount > 0 && heightCount !== 3) {
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('tab-tree').classList.add('active');
     document.querySelectorAll('.nav-btn')[1].classList.add('active');
     currentTab = 'tab-tree';
-    showToast('⚠️ 수고는 최소 3개 이상 입력해야 합니다 (현재 ' + heightCount + '개)', 'error');
+    showToast('⚠️ 수고는 정확히 3개 입력해야 합니다 (현재 ' + heightCount + '개)', 'error');
     // 수고 미입력 행 강조 (입력된 행 중)
     let hlCount = 0;
     for (let i = 1; i <= TREE_TOTAL && hlCount < 3; i++) {
@@ -3542,6 +3542,33 @@ function buildTreeTable() {
       selHt.dataset.userSelected = 'true'; // 사용자가 직접 선택했음을 표시
       selHt.style.background = 'transparent';
       selHt.style.outline = '';
+
+      // 수고 3개 초과 방지 — 이미 3개 입력됐으면 나머지 비활성화
+      const TREE_TOTAL = document.querySelectorAll('[id^="tr-height-"]').length;
+      let heightCount = 0;
+      for (let j = 1; j <= TREE_TOTAL; j++) {
+        const v = document.getElementById('tr-height-' + j)?.value || '';
+        if (v) heightCount++;
+      }
+      if (heightCount >= 3) {
+        for (let j = 1; j <= TREE_TOTAL; j++) {
+          const el = document.getElementById('tr-height-' + j);
+          if (el && !el.value) {
+            el.disabled = true;
+            el.style.opacity = '0.4';
+            el.style.cursor = 'not-allowed';
+          }
+        }
+      } else {
+        for (let j = 1; j <= TREE_TOTAL; j++) {
+          const el = document.getElementById('tr-height-' + j);
+          if (el && !el.value) {
+            el.disabled = false;
+            el.style.opacity = '';
+            el.style.cursor = '';
+          }
+        }
+      }
     });
     selHt.addEventListener('focus', () => scrollSelectTo(selHt, '10.0'));
     selHt.addEventListener('click', () => scrollSelectTo(selHt, '10.0'));
