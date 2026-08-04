@@ -1766,7 +1766,7 @@ async function restoreDraft(plotNo) {
     // 사진 썸네일 복원 (IndexedDB에서)
     if (draft._photoKeys) {
       for (const { k, filename } of draft._photoKeys) {
-        const stored = await idbGet('photo_' + k);
+        const stored = await idbGet(idbOrigKey(plotNo, k));
         if (stored) {
           photoData[k] = { filename };
           const slot = document.getElementById('photo-slot-' + k);
@@ -1786,7 +1786,7 @@ async function restoreDraft(plotNo) {
     // 이동사진 썸네일 복원
     if (draft._movePhotoKeys) {
       for (const { k, filename } of draft._movePhotoKeys) {
-        const stored = await idbGet('move_photo_' + k);
+        const stored = await idbGet(idbMoveOrigKey(plotNo, k));
         if (stored) {
           movePhotoData[k] = { filename };
           const slot = document.getElementById('photo-move-slot-' + k);
@@ -1850,44 +1850,40 @@ function scrollSelectTo(sel, targetVal) {
 }
 
 // ====== 사진 ZIP 다운로드 ======
-async function downloadPhotosAsZip(plotNo, onlyNew = false) {
+// (예전 전역 photoData 기반 downloadPhotosAsZip()은 zipRecordPhotos()로 대체되어 제거함)
+
+// 레코드 기준 ZIP 생성 (photoData 전역변수에 의존하지 않음 — 백그라운드 재업로드에서도 안전하게 사용 가능)
+async function zipRecordPhotos(plotNo, photoList) {
   try {
+    if (!photoList || photoList.length === 0) return;
     const zip = new JSZip();
     let count = 0;
-
-    // onlyNew=true(수정 재업로드): 새로 찍은 사진(원본 있는 것)만 ZIP
-    // onlyNew=false(최초 업로드): 전체 원본 ZIP
-    // 일반 사진 (12장)
-    for (const [idx, p] of Object.entries(photoData)) {
-      const stored = await idbGet('photo_' + idx);
+    const NORMAL_SLOTS = ['C_울폐도','N_8M','N_4M_울폐도','E_8M','E_4M_울폐도',
+                          'S_8M','S_4M_울폐도','W_8M','W_4M_울폐도','전토심','토양단면','지표면'];
+    const MOVE_SLOTS   = ['N_기존현황','E_기존현황','S_기존현황','W_기존현황'];
+    for (const p of photoList) {
+      const normalIdx = NORMAL_SLOTS.findIndex(s => p.filename.includes('(' + s + ')'));
+      let stored = null;
+      if (normalIdx !== -1) stored = await idbGet(idbOrigKey(plotNo, normalIdx));
+      if (!stored || !stored.base64) {
+        const moveIdx = MOVE_SLOTS.findIndex(s => p.filename.includes('(' + s + ')'));
+        if (moveIdx !== -1) stored = await idbGet(idbMoveOrigKey(plotNo, moveIdx));
+      }
       if (stored && stored.base64) {
         zip.file(p.filename, stored.base64, { base64: true });
         count++;
       }
     }
-    // 이동사진 (최대 4장)
-    for (const [idx, p] of Object.entries(movePhotoData)) {
-      const stored = await idbGet('move_photo_' + idx);
-      if (stored && stored.base64) {
-        zip.file(p.filename, stored.base64, { base64: true });
-        count++;
-      }
-    }
-
     if (count === 0) return; // 사진 없으면 건너뜀
 
     const blob = await zip.generateAsync({ type: 'blob' });
 
-    // 용량 확인 (StorageEstimate API)
     if (navigator.storage && navigator.storage.estimate) {
       try {
         const est = await navigator.storage.estimate();
         const free = (est.quota || 0) - (est.usage || 0);
         if (free > 0 && blob.size > free) {
-          showToast(
-            '⚠️ 저장공간이 부족합니다. 구글드라이브에는 정상 업로드됐습니다.',
-            'error'
-          );
+          showToast('⚠️ 저장공간이 부족합니다. 구글드라이브에는 정상 업로드됐습니다.', 'error');
           return;
         }
       } catch(e) { /* 용량 확인 실패 시 그냥 진행 */ }
@@ -1906,6 +1902,12 @@ async function downloadPhotosAsZip(plotNo, onlyNew = false) {
     console.warn('ZIP 다운로드 실패', e);
     showToast('⚠️ ZIP 저장 실패. 구글드라이브에는 정상 업로드됐습니다.', 'error');
   }
+}
+
+// 해당 조사지의 orig 키 일괄 정리 (완전 성공 + ZIP 저장까지 끝난 후에만 호출)
+function clearPlotOrigKeys(plotNo) {
+  for (let i = 0; i < 12; i++) idbDelete(idbOrigKey(plotNo, i)).catch(() => {});
+  for (let i = 0; i < 4; i++) idbDelete(idbMoveOrigKey(plotNo, i)).catch(() => {});
 }
 
 // draft 삭제
@@ -2503,6 +2505,7 @@ async function autoRetryUpload() {
   for (const rec of incomplete) {
     try {
       const plotNo   = rec.plotNo;
+      let recPhotoFailed = 0; // 이 조사지만의 실패 개수 (ZIP+정리 여부 판단용)
       // teamCode: 저장된 soilRow[32] 우선, 없으면 localStorage fallback
       const teamCode = (rec.soilRow && rec.soilRow[6]) || localStorage.getItem('team_code') || '';
       // weekCode: 저장된 soilRow[33] 우선, 없으면 _plotMap 참조
@@ -2536,32 +2539,24 @@ async function autoRetryUpload() {
           let usedOrigKey = null;
           const normalIdx = NORMAL_SLOTS.findIndex(s => p.filename.includes('(' + s + ')'));
           if (normalIdx !== -1) {
+            // orig 키(조사지번호 포함)만 사용 — 다른 조사지 사진 섞임 방지
             let stored = await idbGet(idbOrigKey(plotNo, normalIdx));
             if (stored && stored.base64) { base64 = stored.base64; usedOrigKey = idbOrigKey(plotNo, normalIdx); }
-            if (!base64) {
-              stored = await idbGet('photo_' + normalIdx);
-              if (stored && stored.base64) base64 = stored.base64;
-            }
           }
           if (!base64) {
             const moveIdx = MOVE_SLOTS.findIndex(s => p.filename.includes('(' + s + ')'));
             if (moveIdx !== -1) {
               let stored = await idbGet(idbMoveOrigKey(plotNo, moveIdx));
               if (stored && stored.base64) { base64 = stored.base64; usedOrigKey = idbMoveOrigKey(plotNo, moveIdx); }
-              if (!base64) {
-                stored = await idbGet('move_photo_' + moveIdx);
-                if (stored && stored.base64) base64 = stored.base64;
-              }
             }
           }
-          if (!base64) { console.warn('autoRetry: IDB에 원본 사진 없음 —', p.filename); failedPhotoCount++; continue; }
+          if (!base64) { console.warn('autoRetry: IDB에 원본 사진 없음 —', p.filename); failedPhotoCount++; recPhotoFailed++; continue; }
 
           donePhotos++;
           showToast(`📷 ${plotNo} 사진 업로드 중... ${donePhotos}/${totalPhotos}`, 'info');
           try {
             await sendToScript(scriptUrl, { type: 'photo', base64, filename: p.filename, plotNo, teamCode, weekCode, folderId });
-            // 1장 성공 시 즉시 uploaded:true 저장 + origKey 클리어
-            if (usedOrigKey) idbDelete(usedOrigKey).catch(() => {});
+            // 1장 성공 시 즉시 uploaded:true 저장 (origKey는 ZIP 생성 후 한꺼번에 정리)
             const recsP = JSON.parse(localStorage.getItem('survey_records') || '[]');
             const pIdx = recsP.findIndex(r => r.plotNo === plotNo);
             if (pIdx !== -1 && recsP[pIdx].photoList) {
@@ -2572,6 +2567,7 @@ async function autoRetryUpload() {
             }
           } catch(photoErr) {
             failedPhotoCount++;
+            recPhotoFailed++;
           }
         }
       }
@@ -2587,6 +2583,11 @@ async function autoRetryUpload() {
         recs[idx].synced = recs[idx].soilUploaded && recs[idx].treeUploaded !== false && allPhotoDone;
         localStorage.setItem('survey_records', JSON.stringify(recs));
       }
+      // 이 조사지 사진이 전부 성공했으면 ZIP 저장 후 orig 키 정리 (일부 실패 시엔 남겨둬서 재시도에 대비)
+      if (recPhotoFailed === 0) {
+        await zipRecordPhotos(plotNo, rec.photoList);
+        clearPlotOrigKeys(plotNo);
+      }
       successCount++;
     } catch (err) {
       failedCount++;
@@ -2596,9 +2597,7 @@ async function autoRetryUpload() {
 
   if (successCount > 0 && failedCount === 0 && failedPhotoCount === 0) {
     showToast('✅ 자동 업로드 ' + successCount + '건 완료!', 'success');
-    // 모든 사진 성공 시 IDB 원본 클리어
-    for (let i = 0; i < 12; i++) idbDelete('photo_' + i).catch(() => {});
-    for (let i = 0; i < 4; i++) idbDelete('move_photo_' + i).catch(() => {});
+    // (각 사진 성공 시 orig_plotNo_N 키가 개별적으로 이미 클리어됨 — 전역 일괄삭제 불필요/위험하여 제거)
   } else if (successCount > 0 && (failedCount > 0 || failedPhotoCount > 0)) {
     showToast('⚠️ 자동 업로드 일부 완료 — 성공 ' + successCount + '건, 실패 ' + (failedCount + failedPhotoCount) + '건 (저장목록에서 해당 조사지 불러온 후 다시 시도해주세요)', 'error');
   } else if (successCount === 0 && (failedCount > 0 || failedPhotoCount > 0)) {
@@ -2905,6 +2904,9 @@ async function saveData() {
   }
   localStorage.setItem('survey_records', JSON.stringify(records));
 
+  // ZIP을 업로드 시도보다 먼저 생성 — 네트워크 상태/성공 여부와 무관하게 사진 원본을 먼저 파일로 안전하게 남김
+  await zipRecordPhotos(plotNo, newRecord.photoList);
+
   const teamCode = localStorage.getItem('team_code') || '';
   const weekCode = (window._plotMap && window._plotMap[plotNo] && window._plotMap[plotNo].week) || '주차미정';
 
@@ -2917,15 +2919,15 @@ async function saveData() {
 
   const photoPayloadList = await Promise.all(
     Object.entries(photoData).map(async ([idx, p]) => {
-      // photo_N(새로 찍은 것)만 업로드 — 없으면 드라이브에 이미 있는 것이므로 스킵
-      const stored = await idbGet('photo_' + idx);
+      // orig_plotNo_idx(새로 찍은 것)만 업로드 — 없으면 드라이브에 이미 있는 것이므로 스킵
+      const stored = await idbGet(idbOrigKey(plotNo, idx));
       if (!stored || !stored.base64) return null;
       return { type: 'photo', base64: stored.base64, filename: p.filename, plotNo, teamCode, weekCode, folderId };
     })
   );
   const movePhotoPayloadList = await Promise.all(
     Object.entries(movePhotoData).map(async ([idx, p]) => {
-      const stored = await idbGet('move_photo_' + idx);
+      const stored = await idbGet(idbMoveOrigKey(plotNo, idx));
       if (!stored || !stored.base64) return null;
       return { type: 'photo', base64: stored.base64, filename: p.filename, plotNo, teamCode, weekCode, folderId };
     })
@@ -2983,7 +2985,7 @@ async function saveData() {
     showToast(`📷 사진 업로드 중... ${photoSuccessCount + 1}/${photoPayloads.length}`, 'info');
     try {
       await sendToScript(scriptUrl, payload);
-      // 1장 성공 시 즉시 uploaded:true 저장 + orig_plotNo_N 클리어
+      // 1장 성공 시 즉시 uploaded:true 저장 (orig 키는 ZIP 저장 후 한꺼번에 정리 — 순서 주의!)
       const recsP = JSON.parse(localStorage.getItem('survey_records') || '[]');
       const recIdxP = recsP.findIndex(r => r.plotNo === plotNo);
       if (recIdxP !== -1 && recsP[recIdxP].photoList) {
@@ -2992,11 +2994,6 @@ async function saveData() {
         );
         localStorage.setItem('survey_records', JSON.stringify(recsP));
       }
-      // 성공한 사진의 orig 키 클리어 (드라이브 업로드 성공 확인됨)
-      const successIdx = PHOTO_SLOTS.findIndex(s => payload.filename.includes('(' + s + ')'));
-      if (successIdx !== -1) idbDelete(idbOrigKey(plotNo, successIdx)).catch(() => {});
-      const successMoveIdx = ['N_기존현황','E_기존현황','S_기존현황','W_기존현황'].findIndex(s => payload.filename.includes('(' + s + ')'));
-      if (successMoveIdx !== -1) idbDelete(idbMoveOrigKey(plotNo, successMoveIdx)).catch(() => {});
       photoSuccessCount++;
     } catch(e) {
       failedPhotos.push(payload);
@@ -3025,16 +3022,9 @@ async function saveData() {
     markPlotDoneInDropdown(plotNo); // 드롭다운 즉시 완료 표시
   }
 
-  // ZIP 다운로드 — IDB 클리어 전에 해야 photo_N 데이터 읽을 수 있음
-  const hasNewPhotos = photoPayloads.filter(Boolean).length > 0;
-  if (!isEditMode2 || hasNewPhotos) {
-    await downloadPhotosAsZip(plotNo, isEditMode2);
-  }
-
-  // IDB 사진 데이터 클리어 — 모든 사진 업로드 성공 시에만
+  // ZIP은 위에서 이미 생성됨 — 여기서는 전체 성공한 경우에만 orig 키 일괄 정리 (실패분 남아있으면 재업로드에 필요하므로 유지)
   if (failedPhotos.length === 0) {
-    for (let i = 0; i < 12; i++) idbDelete('photo_' + i).catch(() => {});
-    for (let i = 0; i < 4; i++) idbDelete('move_photo_' + i).catch(() => {});
+    clearPlotOrigKeys(plotNo);
   }
 
   // 저장 완료 후 전체 초기화 (다음 조사 준비)
@@ -3193,9 +3183,10 @@ function buildMovePhotoGrid() {
 
     // 기존 movePhotoData에 사진이 있으면 슬롯 복원
     if (movePhotoData[i]) {
-      idbGet('move_photo_' + i).then(stored => {
+      const plotNoForRestore = document.getElementById('soil-plot-no')?.value || '';
+      idbGet(idbMoveOrigKey(plotNoForRestore, i)).then(stored => {
         if (!stored || !stored.base64) return;
-        const plotNo = document.getElementById('soil-plot-no')?.value || '';
+        const plotNo = plotNoForRestore;
         idbGet(idbMoveThumbKey(plotNo, i)).then(thumb => {
           const src = thumb ? 'data:image/jpeg;base64,' + thumb.base64
                             : 'data:image/jpeg;base64,' + stored.base64;
@@ -3245,16 +3236,13 @@ function handleMovePhoto(event, i) {
       tmpImg.src = '';
       URL.revokeObjectURL(blobUrl);
 
-      const compressed = canvas.toDataURL('image/jpeg', 0.75);
+      const compressed = canvas.toDataURL('image/jpeg', 0.6);
       const base64m = compressed.split(',')[1];
       canvas.width = 0; canvas.height = 0;
 
       movePhotoData[i] = { filename };
-      // IDB 저장 완료 보장 (아이폰 사파리 타이밍 이슈 방지)
-      await Promise.all([
-        idbSet('move_photo_' + i, { base64: base64m, filename }),
-        idbSet(idbMoveOrigKey(plotNo, i), { base64: base64m, filename })
-      ]).catch(console.error);
+      // 조사지번호로 네임스페이스된 키에만 저장 (다른 조사지와 절대 섞이지 않음)
+      await idbSet(idbMoveOrigKey(plotNo, i), { base64: base64m, filename }).catch(console.error);
       // 슬롯 썸네일 + 뷰어용 이미지 동시 저장
       const _plotNoForMoveThumb = plotNo;
       Promise.all([
@@ -3717,9 +3705,9 @@ async function photoSheetAction3() {
         : await idbGet(idbMoveThumbKey(plotNoForView, idx));
     }
   }
-  // fallback: 원본 키 (현재 작업 조사지)
-  if (!stored || !stored.base64) {
-    const key = type === 'photo' ? 'photo_' + idx : 'move_photo_' + idx;
+  // fallback: 원본 키 (조사지번호 포함, 현재 조사지 한정)
+  if ((!stored || !stored.base64) && plotNoForView) {
+    const key = type === 'photo' ? idbOrigKey(plotNoForView, idx) : idbMoveOrigKey(plotNoForView, idx);
     stored = await idbGet(key);
   }
   if (!stored || !stored.base64) {
@@ -3846,8 +3834,8 @@ function triggerMovePhotoGallery(idx) {
 function deleteMovePhotoSlot(i) {
   const _delMovePlotNo = document.getElementById('soil-plot-no')?.value || '';
   delete movePhotoData[i];
-  idbDelete('move_photo_' + i).catch(console.error);
   if (_delMovePlotNo) {
+    idbDelete(idbMoveOrigKey(_delMovePlotNo, i)).catch(console.error);
     idbDelete(idbMoveThumbKey(_delMovePlotNo, i)).catch(console.error);
     idbDelete(idbMoveViewKey(_delMovePlotNo, i)).catch(console.error);
   }
@@ -3936,7 +3924,7 @@ function handlePhoto(event, idx) {
       tmpImg.src = '';
       URL.revokeObjectURL(blobUrl);
 
-      const compressed = canvas.toDataURL('image/jpeg', 0.75);
+      const compressed = canvas.toDataURL('image/jpeg', 0.6);
       const base64 = compressed.split(',')[1];
       const kb = Math.round(base64.length * 0.75 / 1024);
 
@@ -3944,11 +3932,8 @@ function handlePhoto(event, idx) {
       canvas.width = 0; canvas.height = 0;
 
       photoData[idx] = { filename };
-      // 원본(0.75): IDB 저장 완료 보장 (아이폰 사파리 타이밍 이슈 방지)
-      await Promise.all([
-        idbSet('photo_' + idx, { base64, filename }),
-        idbSet(idbOrigKey(plotNo, idx), { base64, filename })
-      ]).catch(console.error);
+      // 조사지번호로 네임스페이스된 키에만 저장 (다른 조사지와 절대 섞이지 않음)
+      await idbSet(idbOrigKey(plotNo, idx), { base64, filename }).catch(console.error);
       saveDraft(); // 사진 저장 직후 즉시 draft 저장
 
       // 썸네일: 조사지번호 포함 키로 영구 저장 (복원용)
@@ -4003,8 +3988,8 @@ function handlePhoto(event, idx) {
 function deletePhoto(idx) {
   const _delPlotNo = document.getElementById('soil-plot-no')?.value || '';
   delete photoData[idx];
-  idbDelete('photo_' + idx).catch(console.error);
   if (_delPlotNo) {
+    idbDelete(idbOrigKey(_delPlotNo, idx)).catch(console.error);
     idbDelete(idbThumbKey(_delPlotNo, idx)).catch(console.error);
     idbDelete(idbViewKey(_delPlotNo, idx)).catch(console.error);
   }
@@ -4415,12 +4400,11 @@ function onPlotSelect(val) {
   // 현재 작업 중인 draft를 현재 조사지번호로 저장 (번호 변경 전)
   saveDraft();
 
-  // 다른 조사지번호 선택 시 photo_N IDB 클리어 (이전 조사 사진 섞임 방지)
-  const currentPlotNo = document.getElementById('soil-plot-no')?.value || '';
-  if (val && val !== currentPlotNo) {
-    for (let i = 0; i < 12; i++) idbDelete('photo_' + i).catch(() => {});
-    for (let i = 0; i < 4; i++) idbDelete('move_photo_' + i).catch(() => {});
-  }
+  // ※ 예전에는 여기서 전역 photo_N IDB를 지웠으나(비동기 미대기),
+  //   그 삭제가 끝나기 전에 다음 조사지 사진을 찍으면 아이폰에서 간헐적으로
+  //   이전 조사지 사진이 되살아나 업로드되는 버그의 원인이었음.
+  //   현재는 사진이 orig_조사지번호_idx 키로 조사지별로 완전히 분리 저장되므로
+  //   조사지를 바꿔도 서로 섞일 수 없어 삭제 자체가 불필요함.
 
   // 전체 초기화
   _doReset();
@@ -5185,16 +5169,11 @@ async function reuploadRecord(id) {
             plotNo, teamCode, weekCode
           });
           if (checkResult && checkResult.exists) {
-            // 드라이브에 이미 있으면 완료 처리 + orig 키 클리어
+            // 드라이브에 이미 있으면 완료 처리 (origKey는 ZIP 생성 후 한꺼번에 정리)
             p.uploaded = true;
             const recsP = JSON.parse(localStorage.getItem('survey_records') || '[]');
             const pIdx = recsP.findIndex(r => r.id === id);
             if (pIdx !== -1) { recsP[pIdx] = rec; localStorage.setItem('survey_records', JSON.stringify(recsP)); }
-            // 드라이브 확인 성공 → orig_plotNo_N 클리어
-            if (slotIdx >= 0) {
-              const origKey = isMove ? idbMoveOrigKey(plotNo, slotIdx) : idbOrigKey(plotNo, slotIdx);
-              idbDelete(origKey).catch(() => {});
-            }
             continue;
           }
         } catch(e) { /* 확인 실패 시 업로드 시도 */ }
@@ -5206,12 +5185,6 @@ async function reuploadRecord(id) {
           const origKey = isMove ? idbMoveOrigKey(plotNo, slotIdx) : idbOrigKey(plotNo, slotIdx);
           let stored = await idbGet(origKey);
           if (stored && stored.base64) { base64 = stored.base64; usedOrigKey = origKey; }
-          // origKey 없으면 photo_N fallback
-          if (!base64) {
-            const photoKey = isMove ? 'move_photo_' + slotIdx : 'photo_' + slotIdx;
-            stored = await idbGet(photoKey);
-            if (stored && stored.base64) base64 = stored.base64;
-          }
         }
         if (!base64) { console.warn('재업로드: 원본 사진 없음 —', p.filename); failedPhotos++; continue; }
         donePhotos++;
@@ -5219,8 +5192,7 @@ async function reuploadRecord(id) {
         try {
           await sendToScript(scriptUrl, { type: 'photo', base64, filename: p.filename, plotNo, teamCode, weekCode, folderId });
           p.uploaded = true;
-          // 1장 성공 시 origKey 클리어 + 즉시 저장
-          if (usedOrigKey) idbDelete(usedOrigKey).catch(() => {});
+          // uploaded 상태 즉시 저장 (origKey는 ZIP 생성 후 한꺼번에 정리)
           const recsP = JSON.parse(localStorage.getItem('survey_records') || '[]');
           const pIdx = recsP.findIndex(r => r.id === id);
           if (pIdx !== -1) { recsP[pIdx] = rec; localStorage.setItem('survey_records', JSON.stringify(recsP)); }
@@ -5242,9 +5214,9 @@ async function reuploadRecord(id) {
     const idx = records.findIndex(r => r.id === id);
     if (idx !== -1) { records[idx] = rec; localStorage.setItem('survey_records', JSON.stringify(records)); }
     showToast('✅ ' + rec.plotNo + ' 재업로드 완료!', 'success');
-    // 모든 사진 성공 시 IDB 원본 클리어 (다음 조사지 빈 슬롯 정확히 인식)
-    for (let i = 0; i < 12; i++) idbDelete('photo_' + i).catch(() => {});
-    for (let i = 0; i < 4; i++) idbDelete('move_photo_' + i).catch(() => {});
+    // 전부 성공했으니 ZIP 저장 후 orig 키 일괄 정리
+    await zipRecordPhotos(plotNo, rec.photoList);
+    clearPlotOrigKeys(plotNo);
     _isUploading = false;
     if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '저장 및 업로드'; }
     renderRecordsList();
