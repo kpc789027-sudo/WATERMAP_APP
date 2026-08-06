@@ -2036,6 +2036,7 @@ function loadRecord(id) {
     setVal('tr-dbh-' + i,     row[7]);
     setVal('tr-height-' + i,  row[8]);
   });
+  syncHeightLock(); // 복원된 수고 개수 기준으로 잠금 상태 재적용
 
   // 조사지이동 카드 토글 + syncToTree
   toggleMovePhotoCard();
@@ -2583,9 +2584,8 @@ async function autoRetryUpload() {
         recs[idx].synced = recs[idx].soilUploaded && recs[idx].treeUploaded !== false && allPhotoDone;
         localStorage.setItem('survey_records', JSON.stringify(recs));
       }
-      // 이 조사지 사진이 전부 성공했으면 ZIP 저장 후 orig 키 정리 (일부 실패 시엔 남겨둬서 재시도에 대비)
+      // 이 조사지 사진이 전부 성공했으면 orig 키 정리 (ZIP은 최초 저장 시점에 이미 생성됨 — 재업로드 성공 시 다시 만들 필요 없음)
       if (recPhotoFailed === 0) {
-        await zipRecordPhotos(plotNo, rec.photoList);
         clearPlotOrigKeys(plotNo);
       }
       successCount++;
@@ -3461,6 +3461,26 @@ function buildDbhOpts() {
   return o;
 }
 // 수고 드롭다운: 1m ~ 50m (0.5 단위)
+// 수고(tr-height-N) 잠금 상태를 현재 채워진 개수 기준으로 다시 계산해서 적용
+// (기록 복원 시 setVal()은 change 이벤트를 안 일으키므로, 복원 후 이 함수를 별도로 호출해야 함)
+function syncHeightLock() {
+  const heightEls = document.querySelectorAll('[id^="tr-height-"]');
+  let heightCount = 0;
+  heightEls.forEach(el => { if (el.value) heightCount++; });
+  const lock = heightCount >= 3;
+  heightEls.forEach(el => {
+    if (!el.value) {
+      el.disabled = lock;
+      el.style.opacity = lock ? '0.4' : '';
+      el.style.cursor = lock ? 'not-allowed' : '';
+    } else {
+      el.disabled = false;
+      el.style.opacity = '';
+      el.style.cursor = '';
+    }
+  });
+}
+
 function buildHeightOpts() {
   let o = '<option value="">-</option>';
   for (let v = 0.5; v <= 50; v += 0.5) {
@@ -3530,33 +3550,7 @@ function buildTreeTable() {
       selHt.dataset.userSelected = 'true'; // 사용자가 직접 선택했음을 표시
       selHt.style.background = 'transparent';
       selHt.style.outline = '';
-
-      // 수고 3개 초과 방지 — 이미 3개 입력됐으면 나머지 비활성화
-      const TREE_TOTAL = document.querySelectorAll('[id^="tr-height-"]').length;
-      let heightCount = 0;
-      for (let j = 1; j <= TREE_TOTAL; j++) {
-        const v = document.getElementById('tr-height-' + j)?.value || '';
-        if (v) heightCount++;
-      }
-      if (heightCount >= 3) {
-        for (let j = 1; j <= TREE_TOTAL; j++) {
-          const el = document.getElementById('tr-height-' + j);
-          if (el && !el.value) {
-            el.disabled = true;
-            el.style.opacity = '0.4';
-            el.style.cursor = 'not-allowed';
-          }
-        }
-      } else {
-        for (let j = 1; j <= TREE_TOTAL; j++) {
-          const el = document.getElementById('tr-height-' + j);
-          if (el && !el.value) {
-            el.disabled = false;
-            el.style.opacity = '';
-            el.style.cursor = '';
-          }
-        }
-      }
+      syncHeightLock(); // 수고 3개 초과 방지 — 이미 3개 입력됐으면 나머지 비활성화
     });
     selHt.addEventListener('focus', () => scrollSelectTo(selHt, '10.0'));
     selHt.addEventListener('click', () => scrollSelectTo(selHt, '10.0'));
@@ -4618,6 +4612,7 @@ function _restoreRecordData(rec) {
     setVal('tr-dbh-' + i,     row[7]);
     setVal('tr-height-' + i,  row[8]);
   });
+  syncHeightLock(); // 복원된 수고 개수 기준으로 잠금 상태 재적용
   toggleMovePhotoCard();
   syncToTree();
   updatePhotoNames();
@@ -4879,6 +4874,15 @@ function _doReset() {
   });
   document.querySelectorAll('select').forEach(el => {
     if (!KEEP_IDS.includes(el.id)) el.selectedIndex = 0;
+  });
+  // 수고(tr-height-N) select는 값뿐 아니라 이전 조사지에서 걸어둔 비활성화 잠금도 같이 풀어줘야 함
+  // (그대로 두면 이전 조사지에서 3개 채우고 잠갔던 상태가 다음 조사지까지 이어져서
+  //  엉뚱한 3칸만 활성화되고 나머지는 계속 막혀있는 버그가 생김)
+  document.querySelectorAll('[id^="tr-height-"]').forEach(el => {
+    el.disabled = false;
+    el.style.opacity = '';
+    el.style.cursor = '';
+    delete el.dataset.userSelected;
   });
   document.querySelectorAll('input[type=radio]').forEach(el => el.checked = false);
   // 토색 2단계 리셋
@@ -5214,8 +5218,7 @@ async function reuploadRecord(id) {
     const idx = records.findIndex(r => r.id === id);
     if (idx !== -1) { records[idx] = rec; localStorage.setItem('survey_records', JSON.stringify(records)); }
     showToast('✅ ' + rec.plotNo + ' 재업로드 완료!', 'success');
-    // 전부 성공했으니 ZIP 저장 후 orig 키 일괄 정리
-    await zipRecordPhotos(plotNo, rec.photoList);
+    // 전부 성공했으니 orig 키 일괄 정리 (ZIP은 최초 저장 시점에 이미 생성됨 — 재업로드 성공 시 다시 만들 필요 없음)
     clearPlotOrigKeys(plotNo);
     _isUploading = false;
     if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '저장 및 업로드'; }
