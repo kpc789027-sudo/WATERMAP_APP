@@ -1591,7 +1591,18 @@ function openIDB() {
     req.onerror   = e => reject(e.target.error);
   });
 }
-async function idbSet(key, value) {
+// 아이폰 사파리 IndexedDB는 짧은 트랜잭션이 빠르게 겹쳐 열리면 요청 결과가
+// 엉뚱한 키와 뒤섞여 반환되는 경우가 드물게 보고되어 있음(WebKit 엔진 버그).
+// 사진 관련 모든 IDB 접근을 하나의 줄(큐)로 세워서, 항상 한 번에 하나씩만
+// 실행되도록 강제해 트랜잭션이 겹칠 가능성 자체를 없앤다.
+let _idbQueue = Promise.resolve();
+function _idbEnqueue(fn) {
+  const run = _idbQueue.then(fn, fn);
+  _idbQueue = run.then(() => {}, () => {});
+  return run;
+}
+
+async function _idbSetRaw(key, value) {
   const db = await openIDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction('photos', 'readwrite');
@@ -1600,7 +1611,7 @@ async function idbSet(key, value) {
     tx.onerror = e => reject(e.target.error);
   });
 }
-async function idbGet(key) {
+async function _idbGetRaw(key) {
   const db = await openIDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction('photos', 'readonly');
@@ -1609,7 +1620,7 @@ async function idbGet(key) {
     req.onerror   = e => reject(e.target.error);
   });
 }
-async function idbDelete(key) {
+async function _idbDeleteRaw(key) {
   const db = await openIDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction('photos', 'readwrite');
@@ -1618,7 +1629,7 @@ async function idbDelete(key) {
     tx.onerror = e => reject(e.target.error);
   });
 }
-async function idbClear() {
+async function _idbClearRaw() {
   const db = await openIDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction('photos', 'readwrite');
@@ -1627,6 +1638,11 @@ async function idbClear() {
     tx.onerror = e => reject(e.target.error);
   });
 }
+
+function idbSet(key, value) { return _idbEnqueue(() => _idbSetRaw(key, value)); }
+function idbGet(key)        { return _idbEnqueue(() => _idbGetRaw(key)); }
+function idbDelete(key)     { return _idbEnqueue(() => _idbDeleteRaw(key)); }
+function idbClear()         { return _idbEnqueue(() => _idbClearRaw()); }
 
 // ★ 조사지번호 포함 IDB 키 생성 헬퍼
 // 일반사진 슬롯 썸네일: thumb_plotNo_idx
@@ -2481,6 +2497,9 @@ function saveQueue(q) { localStorage.setItem('upload_queue', JSON.stringify(q));
 // ====== 앱 시작 시 미완료 업로드 자동 재시도 ======
 async function autoRetryUpload() {
   if (!navigator.onLine) return;
+  // 재진입 방지 — 네트워크가 짧은 시간에 여러 번 끊겼다 붙으면 online 이벤트가 중복 발생해서
+  // 이 함수가 겹쳐서(진짜 동시에) 실행될 수 있음. 이미 실행 중이면 이번 호출은 건너뜀.
+  if (_isUploading) return;
   const scriptUrl = localStorage.getItem('script_url') || MASTER_SCRIPT_URL;
   if (!scriptUrl) return;
 
